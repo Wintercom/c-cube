@@ -104,7 +104,11 @@ func (s *crawlerService) CrawlWebsite(ctx context.Context, baseURL string, maxPa
 		s.visitedMutex.Lock()
 		defer s.visitedMutex.Unlock()
 
-		if s.visited[r.URL.String()] || len(result.URLs) >= maxPages {
+		if s.visited[r.URL.String()] {
+			return
+		}
+
+		if len(result.URLs) >= maxPages {
 			r.Abort()
 			return
 		}
