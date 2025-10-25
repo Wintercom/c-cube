@@ -98,6 +98,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(service.NewEvaluationService))
 	must(container.Provide(service.NewUserService))
 	must(container.Provide(service.NewChunkExtractService))
+	must(container.Provide(service.NewCrawlerService))
 
 	// Chat pipeline components for processing chat requests
 	must(container.Provide(chatpipline.NewEventManager))

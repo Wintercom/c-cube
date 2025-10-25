@@ -5,6 +5,7 @@ import InputField from "@/components/Input-field.vue";
 import useKnowledgeBase from '@/hooks/useKnowledgeBase';
 import { useRoute, useRouter } from 'vue-router';
 import EmptyKnowledge from '@/components/empty-knowledge.vue';
+import DocsiteImportDialog from '@/components/docsite-import-dialog.vue';
 import { getSessionsList, createSessions, generateSessionsTitle } from "@/api/chat/index";
 import { useMenuStore } from '@/stores/menu';
 import { MessagePlugin } from 'tdesign-vue-next';
@@ -24,6 +25,7 @@ let delDialog = ref(false)
 let knowledge = ref<KnowledgeCard>({ id: '', parse_status: '' })
 let knowledgeIndex = ref(-1)
 let knowledgeScroll = ref()
+let showDocsiteDialog = ref(false)
 let page = 1;
 let pageSize = 35;
 const getPageSize = () => {
@@ -216,10 +218,34 @@ async function createNewSession(value: string): Promise<void> {
     console.error("创建会话出错:", error);
   });
 }
+
+const handleRefresh = () => {
+  if (kbId.value) {
+    loadKnowledgeFiles(kbId.value);
+  }
+};
+
+const openDocsiteImport = () => {
+  showDocsiteDialog.value = true;
+};
+
+const handleDocsiteImportSuccess = () => {
+  handleRefresh();
+};
 </script>
 
 <template>
   <div v-show="cardList.length" class="knowledge-card-box" style="position: relative">
+    <t-button
+      class="docsite-import-fab"
+      theme="primary"
+      shape="circle"
+      size="large"
+      @click="openDocsiteImport"
+      title="从文档站导入"
+    >
+      <t-icon name="link" size="20px" />
+    </t-button>
     <div class="knowledge-card-wrap" ref="knowledgeScroll" @scroll="handleScroll">
       <div class="knowledge-card" v-for="(item, index) in cardList" :key="index" @click="openCardDetails(item)">
         <div class="card-content">
@@ -274,10 +300,28 @@ async function createNewSession(value: string): Promise<void> {
     </div>
     <InputField @send-msg="sendMsg"></InputField>
     <DocContent :visible="isCardDetails" :details="details" @closeDoc="closeDoc" @getDoc="getDoc"></DocContent>
+    <DocsiteImportDialog 
+      v-model:visible="showDocsiteDialog" 
+      :kb-id="kbId"
+      @success="handleDocsiteImportSuccess"
+    />
   </div>
-  <EmptyKnowledge v-show="!cardList.length"></EmptyKnowledge>
+  <EmptyKnowledge v-show="!cardList.length" :kb-id="kbId" @refresh="handleRefresh"></EmptyKnowledge>
 </template>
 <style>
+.docsite-import-fab {
+  position: absolute !important;
+  bottom: 100px;
+  right: 60px;
+  z-index: 98;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.docsite-import-fab:hover {
+  transform: scale(1.05);
+  transition: transform 0.2s;
+}
+
 .card-more {
   z-index: 99 !important;
 }
