@@ -16,16 +16,22 @@ import (
 
 // KnowledgeHandler processes HTTP requests related to knowledge resources
 type KnowledgeHandler struct {
-	kgService interfaces.KnowledgeService
-	kbService interfaces.KnowledgeBaseService
+	kgService      interfaces.KnowledgeService
+	kbService      interfaces.KnowledgeBaseService
+	crawlerService interfaces.CrawlerService
 }
 
 // NewKnowledgeHandler creates a new knowledge handler instance
 func NewKnowledgeHandler(
 	kgService interfaces.KnowledgeService,
 	kbService interfaces.KnowledgeBaseService,
+	crawlerService interfaces.CrawlerService,
 ) *KnowledgeHandler {
-	return &KnowledgeHandler{kgService: kgService, kbService: kbService}
+	return &KnowledgeHandler{
+		kgService:      kgService,
+		kbService:      kbService,
+		crawlerService: crawlerService,
+	}
 }
 
 // validateKnowledgeBaseAccess validates access permissions to a knowledge base
@@ -472,5 +478,116 @@ func (h *KnowledgeHandler) UpdateImageInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Knowledge chunk image updated successfully",
+	})
+}
+
+// CreateKnowledgeFromDocsite handles requests to batch import from a documentation website
+func (h *KnowledgeHandler) CreateKnowledgeFromDocsite(c *gin.Context) {
+	ctx := c.Request.Context()
+	logger.Info(ctx, "Start creating knowledge from docsite")
+
+	// Validate access to the knowledge base
+	_, kbID, err := h.validateKnowledgeBaseAccess(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		BaseURL          string `json:"base_url" binding:"required"`
+		MaxPages         int    `json:"max_pages"`
+		EnableMultimodel *bool  `json:"enable_multimodel"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		logger.Error(ctx, "Failed to parse docsite request", err)
+		c.Error(errors.NewBadRequestError(err.Error()))
+		return
+	}
+
+	if req.MaxPages <= 0 {
+		req.MaxPages = 100
+	}
+	if req.MaxPages > 500 {
+		req.MaxPages = 500
+	}
+
+	logger.Infof(ctx, "Starting docsite import, knowledge base ID: %s, base URL: %s, max pages: %d",
+		kbID, req.BaseURL, req.MaxPages)
+
+	// Crawl website to get all URLs
+	crawlResult, err := h.crawlerService.CrawlWebsite(ctx, req.BaseURL, req.MaxPages)
+	if err != nil {
+		logger.ErrorWithFields(ctx, err, nil)
+		c.Error(errors.NewInternalServerError("Failed to crawl website").WithDetails(err.Error()))
+		return
+	}
+
+	if len(crawlResult.URLs) == 0 {
+		logger.Warn(ctx, "No URLs found from crawling")
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "No URLs found to import",
+			"data": gin.H{
+				"total":   0,
+				"success": 0,
+				"failed":  0,
+			},
+		})
+		return
+	}
+
+	logger.Infof(ctx, "Crawl completed, found %d URLs, starting batch import", len(crawlResult.URLs))
+
+	// Import each URL asynchronously
+	successCount := 0
+	failedCount := 0
+	duplicateCount := 0
+	results := make([]gin.H, 0)
+
+	for _, urlStr := range crawlResult.URLs {
+		knowledge, err := h.kgService.CreateKnowledgeFromURL(ctx, kbID, urlStr, req.EnableMultimodel)
+		if err != nil {
+			if _, ok := err.(*types.DuplicateKnowledgeError); ok {
+				duplicateCount++
+				logger.Infof(ctx, "Duplicate URL skipped: %s", urlStr)
+				results = append(results, gin.H{
+					"url":    urlStr,
+					"status": "duplicate",
+				})
+			} else {
+				failedCount++
+				logger.Warnf(ctx, "Failed to import URL %s: %v", urlStr, err)
+				results = append(results, gin.H{
+					"url":    urlStr,
+					"status": "failed",
+					"error":  err.Error(),
+				})
+			}
+			continue
+		}
+
+		successCount++
+		logger.Infof(ctx, "Successfully imported URL: %s, knowledge ID: %s", urlStr, knowledge.ID)
+		results = append(results, gin.H{
+			"url":          urlStr,
+			"status":       "success",
+			"knowledge_id": knowledge.ID,
+		})
+	}
+
+	logger.Infof(ctx, "Docsite import completed: total=%d, success=%d, duplicate=%d, failed=%d",
+		len(crawlResult.URLs), successCount, duplicateCount, failedCount)
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "Docsite import completed",
+		"data": gin.H{
+			"total":     len(crawlResult.URLs),
+			"success":   successCount,
+			"duplicate": duplicateCount,
+			"failed":    failedCount,
+			"results":   results,
+		},
 	})
 }

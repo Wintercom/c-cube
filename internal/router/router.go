@@ -114,6 +114,8 @@ func RegisterKnowledgeRoutes(r *gin.RouterGroup, handler *handler.KnowledgeHandl
 		kb.POST("/file", handler.CreateKnowledgeFromFile)
 		// 从URL创建知识
 		kb.POST("/url", handler.CreateKnowledgeFromURL)
+		// 从文档站批量导入
+		kb.POST("/docsite", handler.CreateKnowledgeFromDocsite)
 		// 获取知识库下的知识列表
 		kb.GET("", handler.ListKnowledge)
 	}
