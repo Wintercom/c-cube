@@ -57,3 +57,26 @@ export function getKnowledgeDetailsCon(id: string, page: number) {
 export function importDocsiteKnowledge(kbId: string, data: { base_url: string; max_pages?: number; enable_multimodel?: boolean }) {
   return post(`/api/v1/knowledge-bases/${kbId}/knowledge/docsite`, data);
 }
+
+// 批量导入任务 API
+export function createImportTask(kbId: string, data: { base_url: string; max_pages?: number; enable_multimodel?: boolean }) {
+  return post(`/api/v1/knowledge-bases/${kbId}/import-tasks`, data);
+}
+
+export function getImportTask(taskId: string) {
+  return get(`/api/v1/import-tasks/${taskId}`);
+}
+
+export function listImportTasks(params: { page: number; page_size: number; knowledge_base_id?: string }) {
+  const queryParams = new URLSearchParams();
+  queryParams.append('page', params.page.toString());
+  queryParams.append('page_size', params.page_size.toString());
+  if (params.knowledge_base_id) {
+    queryParams.append('knowledge_base_id', params.knowledge_base_id);
+  }
+  return get(`/api/v1/import-tasks?${queryParams.toString()}`);
+}
+
+export function cancelImportTask(taskId: string) {
+  return post(`/api/v1/import-tasks/${taskId}/cancel`, {});
+}

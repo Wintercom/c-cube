@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { MessagePlugin } from 'tdesign-vue-next';
-import { importDocsiteKnowledge } from '@/api/knowledge-base';
+import { createImportTask } from '@/api/knowledge-base';
+import { useRouter } from 'vue-router';
 
 const props = defineProps<{
   visible: boolean;
@@ -13,6 +14,7 @@ const emit = defineEmits<{
   (e: 'success'): void;
 }>();
 
+const router = useRouter();
 const baseUrl = ref('');
 const maxPages = ref(100);
 const isImporting = ref(false);
@@ -47,7 +49,7 @@ const handleImport = async () => {
   isImporting.value = true;
 
   try {
-    const result = await importDocsiteKnowledge(props.kbId, {
+    const result = await createImportTask(props.kbId, {
       base_url: baseUrl.value,
       max_pages: maxPages.value,
       enable_multimodel: false
@@ -55,20 +57,23 @@ const handleImport = async () => {
 
     if (result) {
       const data = result as any;
-      if (data.success || data.data) {
-        const stats = data.data || {};
-        MessagePlugin.success(
-          `导入完成! 总计: ${stats.total || 0}, 成功: ${stats.success || 0}, 失败: ${stats.failed || 0}`
-        );
-        emit('success');
+      if (data.success && data.data) {
+        const taskId = data.data.id;
+        MessagePlugin.success('导入任务已创建,正在后台处理...');
         handleClose();
+        
+        // 跳转到任务管理页面
+        router.push({
+          name: 'ImportTasks',
+          params: { kbId: props.kbId }
+        });
       } else {
-        MessagePlugin.error(data.message || '导入失败');
+        MessagePlugin.error(data.message || '创建导入任务失败');
       }
     }
   } catch (error: any) {
-    console.error('Docsite import error:', error);
-    MessagePlugin.error(error?.message || '导入过程中发生错误');
+    console.error('Create import task error:', error);
+    MessagePlugin.error(error?.message || '创建导入任务时发生错误');
   } finally {
     isImporting.value = false;
   }

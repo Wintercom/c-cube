@@ -114,10 +114,28 @@ func RegisterKnowledgeRoutes(r *gin.RouterGroup, handler *handler.KnowledgeHandl
 		kb.POST("/file", handler.CreateKnowledgeFromFile)
 		// 从URL创建知识
 		kb.POST("/url", handler.CreateKnowledgeFromURL)
-		// 从文档站批量导入
-		kb.POST("/docsite", handler.CreateKnowledgeFromDocsite)
 		// 获取知识库下的知识列表
 		kb.GET("", handler.ListKnowledge)
+	}
+
+	// 批量导入任务路由组
+	importTasks := r.Group("/import-tasks")
+	{
+		// 创建批量导入任务
+		importTasks.POST("", handler.CreateImportTask)
+		// 获取批量导入任务列表
+		importTasks.GET("", handler.ListImportTasks)
+		// 获取批量导入任务详情
+		importTasks.GET("/:task_id", handler.GetImportTask)
+		// 取消批量导入任务
+		importTasks.POST("/:task_id/cancel", handler.CancelImportTask)
+	}
+
+	// 兼容旧API - 知识库级别的批量导入任务
+	kbImport := r.Group("/knowledge-bases/:id/import-tasks")
+	{
+		// 创建批量导入任务
+		kbImport.POST("", handler.CreateImportTask)
 	}
 
 	// 知识路由组

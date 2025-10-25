@@ -83,6 +83,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(repository.NewModelRepository))
 	must(container.Provide(repository.NewUserRepository))
 	must(container.Provide(repository.NewAuthTokenRepository))
+	must(container.Provide(repository.NewImportTaskRepository))
 	must(container.Provide(neo4jRepo.NewNeo4jRepository))
 
 	// Business service layer
@@ -99,6 +100,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(service.NewUserService))
 	must(container.Provide(service.NewChunkExtractService))
 	must(container.Provide(service.NewCrawlerService))
+	must(container.Provide(service.NewImportTaskService))
 
 	// Chat pipeline components for processing chat requests
 	must(container.Provide(chatpipline.NewEventManager))
@@ -196,6 +198,7 @@ func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 		&types.User{},
 		&types.AuthToken{},
 		&types.KnowledgeBase{},
+		&types.ImportTask{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to auto-migrate database tables: %v", err)

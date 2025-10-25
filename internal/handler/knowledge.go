@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,9 +17,10 @@ import (
 
 // KnowledgeHandler processes HTTP requests related to knowledge resources
 type KnowledgeHandler struct {
-	kgService      interfaces.KnowledgeService
-	kbService      interfaces.KnowledgeBaseService
-	crawlerService interfaces.CrawlerService
+	kgService         interfaces.KnowledgeService
+	kbService         interfaces.KnowledgeBaseService
+	crawlerService    interfaces.CrawlerService
+	importTaskService interfaces.ImportTaskService
 }
 
 // NewKnowledgeHandler creates a new knowledge handler instance
@@ -26,11 +28,13 @@ func NewKnowledgeHandler(
 	kgService interfaces.KnowledgeService,
 	kbService interfaces.KnowledgeBaseService,
 	crawlerService interfaces.CrawlerService,
+	importTaskService interfaces.ImportTaskService,
 ) *KnowledgeHandler {
 	return &KnowledgeHandler{
-		kgService:      kgService,
-		kbService:      kbService,
-		crawlerService: crawlerService,
+		kgService:         kgService,
+		kbService:         kbService,
+		crawlerService:    crawlerService,
+		importTaskService: importTaskService,
 	}
 }
 
@@ -481,10 +485,10 @@ func (h *KnowledgeHandler) UpdateImageInfo(c *gin.Context) {
 	})
 }
 
-// CreateKnowledgeFromDocsite handles requests to batch import from a documentation website
-func (h *KnowledgeHandler) CreateKnowledgeFromDocsite(c *gin.Context) {
+// CreateImportTask handles requests to create a batch import task
+func (h *KnowledgeHandler) CreateImportTask(c *gin.Context) {
 	ctx := c.Request.Context()
-	logger.Info(ctx, "Start creating knowledge from docsite")
+	logger.Info(ctx, "Start creating import task")
 
 	// Validate access to the knowledge base
 	_, kbID, err := h.validateKnowledgeBaseAccess(c)
@@ -500,7 +504,7 @@ func (h *KnowledgeHandler) CreateKnowledgeFromDocsite(c *gin.Context) {
 		EnableMultimodel *bool  `json:"enable_multimodel"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Error(ctx, "Failed to parse docsite request", err)
+		logger.Error(ctx, "Failed to parse import task request", err)
 		c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
@@ -512,82 +516,121 @@ func (h *KnowledgeHandler) CreateKnowledgeFromDocsite(c *gin.Context) {
 		req.MaxPages = 500
 	}
 
-	logger.Infof(ctx, "Starting docsite import, knowledge base ID: %s, base URL: %s, max pages: %d",
+	logger.Infof(ctx, "Creating import task, knowledge base ID: %s, base URL: %s, max pages: %d",
 		kbID, req.BaseURL, req.MaxPages)
 
-	// Crawl website to get all URLs
-	crawlResult, err := h.crawlerService.CrawlWebsite(ctx, req.BaseURL, req.MaxPages)
-	if err != nil {
+	tenantID := c.GetUint(types.TenantIDContextKey.String())
+
+	config := types.ImportTaskConfig{
+		MaxPages:         req.MaxPages,
+		EnableMultimodel: req.EnableMultimodel,
+	}
+	configJSON, _ := json.Marshal(config)
+
+	task := &types.ImportTask{
+		TenantID:        tenantID,
+		KnowledgeBaseID: kbID,
+		BaseURL:         req.BaseURL,
+		Status:          types.ImportTaskStatusPending,
+		Config:          configJSON,
+		Results:         []byte("[]"),
+	}
+
+	if err := h.importTaskService.CreateTask(ctx, task); err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError("Failed to crawl website").WithDetails(err.Error()))
+		c.Error(errors.NewInternalServerError("Failed to create import task").WithDetails(err.Error()))
 		return
 	}
 
-	if len(crawlResult.URLs) == 0 {
-		logger.Warn(ctx, "No URLs found from crawling")
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "No URLs found to import",
-			"data": gin.H{
-				"total":   0,
-				"success": 0,
-				"failed":  0,
-			},
-		})
-		return
-	}
+	go h.importTaskService.ProcessTask(context.Background(), task)
 
-	logger.Infof(ctx, "Crawl completed, found %d URLs, starting batch import", len(crawlResult.URLs))
-
-	// Import each URL asynchronously
-	successCount := 0
-	failedCount := 0
-	duplicateCount := 0
-	results := make([]gin.H, 0)
-
-	for _, urlStr := range crawlResult.URLs {
-		knowledge, err := h.kgService.CreateKnowledgeFromURL(ctx, kbID, urlStr, req.EnableMultimodel)
-		if err != nil {
-			if _, ok := err.(*types.DuplicateKnowledgeError); ok {
-				duplicateCount++
-				logger.Infof(ctx, "Duplicate URL skipped: %s", urlStr)
-				results = append(results, gin.H{
-					"url":    urlStr,
-					"status": "duplicate",
-				})
-			} else {
-				failedCount++
-				logger.Warnf(ctx, "Failed to import URL %s: %v", urlStr, err)
-				results = append(results, gin.H{
-					"url":    urlStr,
-					"status": "failed",
-					"error":  err.Error(),
-				})
-			}
-			continue
-		}
-
-		successCount++
-		logger.Infof(ctx, "Successfully imported URL: %s, knowledge ID: %s", urlStr, knowledge.ID)
-		results = append(results, gin.H{
-			"url":          urlStr,
-			"status":       "success",
-			"knowledge_id": knowledge.ID,
-		})
-	}
-
-	logger.Infof(ctx, "Docsite import completed: total=%d, success=%d, duplicate=%d, failed=%d",
-		len(crawlResult.URLs), successCount, duplicateCount, failedCount)
-
+	logger.Infof(ctx, "Import task created successfully, task ID: %s", task.ID)
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
-		"message": "Docsite import completed",
-		"data": gin.H{
-			"total":     len(crawlResult.URLs),
-			"success":   successCount,
-			"duplicate": duplicateCount,
-			"failed":    failedCount,
-			"results":   results,
-		},
+		"message": "Import task created successfully",
+		"data":    task,
+	})
+}
+
+// GetImportTask retrieves import task status and progress
+func (h *KnowledgeHandler) GetImportTask(c *gin.Context) {
+	ctx := c.Request.Context()
+	logger.Info(ctx, "Start retrieving import task")
+
+	taskID := c.Param("task_id")
+	if taskID == "" {
+		logger.Error(ctx, "Task ID is empty")
+		c.Error(errors.NewBadRequestError("Task ID cannot be empty"))
+		return
+	}
+
+	task, err := h.importTaskService.GetTaskByID(ctx, taskID)
+	if err != nil {
+		logger.ErrorWithFields(ctx, err, nil)
+		c.Error(errors.NewInternalServerError("Failed to retrieve import task").WithDetails(err.Error()))
+		return
+	}
+
+	logger.Infof(ctx, "Import task retrieved successfully, task ID: %s", task.ID)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    task,
+	})
+}
+
+// CancelImportTask cancels a running import task
+func (h *KnowledgeHandler) CancelImportTask(c *gin.Context) {
+	ctx := c.Request.Context()
+	logger.Info(ctx, "Start cancelling import task")
+
+	taskID := c.Param("task_id")
+	if taskID == "" {
+		logger.Error(ctx, "Task ID is empty")
+		c.Error(errors.NewBadRequestError("Task ID cannot be empty"))
+		return
+	}
+
+	if err := h.importTaskService.CancelTask(ctx, taskID); err != nil {
+		logger.ErrorWithFields(ctx, err, nil)
+		c.Error(errors.NewInternalServerError("Failed to cancel import task").WithDetails(err.Error()))
+		return
+	}
+
+	logger.Infof(ctx, "Import task cancelled successfully, task ID: %s", taskID)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Import task cancelled successfully",
+	})
+}
+
+// ListImportTasks retrieves a list of import tasks
+func (h *KnowledgeHandler) ListImportTasks(c *gin.Context) {
+	ctx := c.Request.Context()
+	logger.Info(ctx, "Start retrieving import tasks list")
+
+	kbID := c.Query("knowledge_base_id")
+	tenantID := c.GetUint(types.TenantIDContextKey.String())
+
+	var pagination types.Pagination
+	if err := c.ShouldBindQuery(&pagination); err != nil {
+		logger.Error(ctx, "Failed to parse pagination parameters", err)
+		c.Error(errors.NewBadRequestError(err.Error()))
+		return
+	}
+
+	result, err := h.importTaskService.ListTasks(ctx, tenantID, kbID, &pagination)
+	if err != nil {
+		logger.ErrorWithFields(ctx, err, nil)
+		c.Error(errors.NewInternalServerError("Failed to retrieve import tasks").WithDetails(err.Error()))
+		return
+	}
+
+	logger.Infof(ctx, "Import tasks list retrieved successfully, total: %d", result.Total)
+	c.JSON(http.StatusOK, gin.H{
+		"success":   true,
+		"data":      result.Data,
+		"total":     result.Total,
+		"page":      result.Page,
+		"page_size": result.PageSize,
 	})
 }
