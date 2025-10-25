@@ -542,7 +542,14 @@ func (h *KnowledgeHandler) CreateImportTask(c *gin.Context) {
 		return
 	}
 
-	go h.importTaskService.ProcessTask(context.Background(), task)
+	// Create a context with tenant information for the background task
+	tenantInfo, _ := c.Get(types.TenantInfoContextKey.String())
+	taskCtx := context.WithValue(
+		context.WithValue(context.Background(), types.TenantIDContextKey, tenantID),
+		types.TenantInfoContextKey, tenantInfo,
+	)
+	
+	go h.importTaskService.ProcessTask(taskCtx, task)
 
 	logger.Infof(ctx, "Import task created successfully, task ID: %s", task.ID)
 	c.JSON(http.StatusCreated, gin.H{
