@@ -12,13 +12,6 @@ import (
 	"time"
 )
 
-type TransformedQA struct {
-	Title       string                 `json:"title"`
-	Description string                 `json:"description"`
-	Passage     string                 `json:"passage"`
-	Metadata    map[string]interface{} `json:"metadata"`
-}
-
 type PassageRequest struct {
 	Passages    []string               `json:"passages"`
 	Title       string                 `json:"title,omitempty"`
