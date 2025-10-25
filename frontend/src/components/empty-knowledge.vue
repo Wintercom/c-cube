@@ -1,4 +1,24 @@
 <script setup lang="ts">
+import { ref } from 'vue';
+import DocsiteImportDialog from './docsite-import-dialog.vue';
+
+const props = defineProps<{
+  kbId?: string;
+}>();
+
+const emit = defineEmits<{
+  (e: 'refresh'): void;
+}>();
+
+const showDocsiteDialog = ref(false);
+
+const handleImportClick = () => {
+  showDocsiteDialog.value = true;
+};
+
+const handleImportSuccess = () => {
+  emit('refresh');
+};
 </script>
 <template>
     <div class="empty">
@@ -6,6 +26,18 @@
         <span class="empty-txt">知识为空，拖放上传</span>
         <span class="empty-type-txt">pdf、doc 格式文件，不超过10M</span>
         <span class="empty-type-txt">text、markdown格式文件，不超过200K</span>
+        <div class="import-actions">
+          <span class="divider-text">或者</span>
+          <t-button theme="default" variant="outline" @click="handleImportClick">
+            <t-icon name="link" />
+            从文档站导入
+          </t-button>
+        </div>
+        <DocsiteImportDialog 
+          v-model:visible="showDocsiteDialog" 
+          :kb-id="kbId || ''"
+          @success="handleImportSuccess"
+        />
     </div>
 </template>
 <style scoped lang="less">
@@ -38,5 +70,19 @@
 .empty-img {
     width: 162px;
     height: 162px;
+}
+
+.import-actions {
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+
+    .divider-text {
+        color: #00000066;
+        font-size: 14px;
+        margin: 8px 0;
+    }
 }
 </style>
