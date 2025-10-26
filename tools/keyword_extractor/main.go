@@ -50,6 +50,8 @@ func NewKeywordExtractor() *KeywordExtractor {
 		"已处理": true, "手动介入": true, "已经帮您": true, "正在处理": true,
 		"麻烦您提供": true, "联系客服": true, "这边": true, "帮您": true,
 		"看下": true, "提供": true, "一下": true, "这里": true, "那边": true,
+		"吗": true, "呢": true, "啊": true, "哦": true, "嗯": true,
+		"进行": true, "具体": true, "处理": true, "任务": true,
 	}
 
 	return &KeywordExtractor{
@@ -104,6 +106,31 @@ func (e *KeywordExtractor) IsTechnicalKeyword(word string) bool {
 		return false
 	}
 
+	// 过滤包含语法词缀的关键词
+	invalidSuffixes := []string{"的", "了", "吗", "呢", "啊", "您", "我", "他", "她"}
+	for _, suffix := range invalidSuffixes {
+		if strings.HasSuffix(word, suffix) || strings.HasPrefix(word, suffix) {
+			return false
+		}
+		// 检查中间是否包含这些语法词
+		if strings.Contains(word, suffix) && len(word) < 6 {
+			return false
+		}
+	}
+
+	// 过滤明显的片段词
+	runes := []rune(word)
+	// 检查是否包含常见的片段字符（这些字通常不会单独作为技术词的开头或结尾）
+	fragmentChars := []string{"体", "行", "档", "码", "验", "的", "和", "或", "与"}
+	for _, frag := range fragmentChars {
+		// 如果是短词（≤3字符）且包含片段字符，很可能是片段
+		if len(runes) <= 3 {
+			if strings.HasPrefix(word, frag) || strings.HasSuffix(word, frag) {
+				return false
+			}
+		}
+	}
+
 	hasEnglish := false
 	hasDigit := false
 	for _, r := range word {
@@ -119,27 +146,32 @@ func (e *KeywordExtractor) IsTechnicalKeyword(word string) bool {
 		return true
 	}
 
-	technicalPatterns := []string{
-		"错误", "报错", "异常", "失败", "问题",
-		"配置", "设置", "参数", "选项", "功能",
-		"文件", "上传", "下载", "存储", "空间",
-		"域名", "证书", "解析", "绑定", "备案",
-		"接口", "调用", "请求", "响应", "返回",
-		"代码", "脚本", "命令", "语句", "方法",
-		"数据", "字段", "记录", "内容", "信息",
-		"格式", "类型", "版本", "编码", "解码",
+	// 核心技术关键词（更精确的匹配）
+	coreTechnicalWords := []string{
+		"错误", "报错", "异常", "失败",
+		"配置", "设置", "参数", "选项",
+		"文件", "上传", "下载", "存储", "空间", "bucket",
+		"域名", "证书", "解析", "绑定", "备案", "验证",
+		"接口", "调用", "请求", "响应",
+		"代码", "脚本", "命令",
+		"数据", "字段", "记录",
+		"格式", "类型", "版本", "编码",
 		"权限", "认证", "授权", "密钥", "签名",
-		"转码", "处理", "分析", "检测", "识别",
-		"流量", "带宽", "速度", "延迟", "超时",
-		"日志", "监控", "统计", "报表", "数据",
-		"回调", "通知", "推送", "订阅", "发布",
-		"查询", "搜索", "过滤", "排序", "分页",
-		"缓存", "队列", "任务", "进程", "线程",
-		"模板", "样式", "主题", "布局", "组件",
+		"转码", "分析", "检测",
+		"流量", "带宽", "延迟", "超时",
+		"日志", "监控", "统计",
+		"回调", "通知", "推送",
+		"查询", "搜索", "过滤",
+		"缓存", "队列",
 	}
 
-	for _, pattern := range technicalPatterns {
-		if strings.Contains(word, pattern) {
+	// 检查是否是核心技术词或包含核心技术词
+	for _, techWord := range coreTechnicalWords {
+		if word == techWord {
+			return true
+		}
+		// 如果包含核心技术词，且长度合理（避免过长的句子）
+		if strings.Contains(word, techWord) && len(word) <= 10 {
 			return true
 		}
 	}
@@ -388,7 +420,11 @@ func (e *KeywordExtractor) categorizeKeyword(keyword string) string {
 		}
 	}
 
-	networkKeywords := []string{"域名", "dns", "证书", "ssl", "cdn", "http", "https"}
+	networkKeywords := []string{
+		"域名", "dns", "证书", "ssl", "cdn", "http", "https",
+		"解析", "验证", "绑定", "备案", "主机", "记录",
+		"ip", "端口", "协议", "网络", "连接",
+	}
 	for _, k := range networkKeywords {
 		if strings.Contains(keyword, k) {
 			return "网络相关"

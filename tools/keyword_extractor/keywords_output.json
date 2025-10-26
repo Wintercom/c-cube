@@ -1,0 +1,27 @@
+[
+  {
+    "keyword": "解析",
+    "frequency": 4,
+    "category": "网络相关"
+  },
+  {
+    "keyword": "https",
+    "frequency": 3,
+    "category": "网络相关"
+  },
+  {
+    "keyword": "token",
+    "frequency": 2,
+    "category": "API相关"
+  },
+  {
+    "keyword": "报错",
+    "frequency": 2,
+    "category": "错误相关"
+  },
+  {
+    "keyword": "文件",
+    "frequency": 2,
+    "category": "存储相关"
+  }
+]
