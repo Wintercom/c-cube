@@ -182,7 +182,14 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 	}
 
 	// Check storage quota
-	tenantInfo := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
+	tenantInfoRaw := ctx.Value(types.TenantInfoContextKey)
+	if tenantInfoRaw == nil {
+		return nil, fmt.Errorf("tenant info not found in context")
+	}
+	tenantInfo, ok := tenantInfoRaw.(*types.Tenant)
+	if !ok {
+		return nil, fmt.Errorf("invalid tenant info type in context")
+	}
 	if tenantInfo.StorageQuota > 0 && tenantInfo.StorageUsed >= tenantInfo.StorageQuota {
 		logger.Error(ctx, "Storage quota exceeded")
 		return nil, types.NewStorageQuotaExceededError()
@@ -281,7 +288,14 @@ func (s *knowledgeService) CreateKnowledgeFromURL(ctx context.Context,
 	}
 
 	// Check if URL already exists in the knowledge base
-	tenantID := ctx.Value(types.TenantIDContextKey).(uint)
+	tenantIDRaw := ctx.Value(types.TenantIDContextKey)
+	if tenantIDRaw == nil {
+		return nil, fmt.Errorf("tenant ID not found in context")
+	}
+	tenantID, ok := tenantIDRaw.(uint)
+	if !ok {
+		return nil, fmt.Errorf("invalid tenant ID type in context")
+	}
 	logger.Infof(ctx, "Checking if URL exists, tenant ID: %d", tenantID)
 	fileHash := calculateStr(url)
 	exists, existingKnowledge, err := s.repo.CheckKnowledgeExists(ctx, tenantID, kbID, &types.KnowledgeCheckParams{
@@ -306,7 +320,14 @@ func (s *knowledgeService) CreateKnowledgeFromURL(ctx context.Context,
 	}
 
 	// Check storage quota
-	tenantInfo := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
+	tenantInfoRaw := ctx.Value(types.TenantInfoContextKey)
+	if tenantInfoRaw == nil {
+		return nil, fmt.Errorf("tenant info not found in context")
+	}
+	tenantInfo, ok := tenantInfoRaw.(*types.Tenant)
+	if !ok {
+		return nil, fmt.Errorf("invalid tenant info type in context")
+	}
 	if tenantInfo.StorageQuota > 0 && tenantInfo.StorageUsed >= tenantInfo.StorageQuota {
 		logger.Error(ctx, "Storage quota exceeded")
 		return nil, types.NewStorageQuotaExceededError()

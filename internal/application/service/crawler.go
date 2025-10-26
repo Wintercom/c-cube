@@ -84,16 +84,19 @@ func (s *crawlerService) CrawlWebsite(ctx context.Context, baseURL string, maxPa
 		parsedURL.Fragment = ""
 		cleanURL := parsedURL.String()
 
-		s.visitedMutex.RLock()
-		alreadyVisited := s.visited[cleanURL]
-		urlCount := len(result.URLs)
-		s.visitedMutex.RUnlock()
-
-		if alreadyVisited || urlCount >= maxPages {
+		if shouldSkipURL(cleanURL) {
 			return
 		}
 
-		if shouldSkipURL(cleanURL) {
+		s.visitedMutex.Lock()
+		alreadyVisited := s.visited[cleanURL]
+		urlCount := len(result.URLs)
+		if !alreadyVisited && urlCount < maxPages {
+			s.visited[cleanURL] = true
+		}
+		s.visitedMutex.Unlock()
+
+		if alreadyVisited || urlCount >= maxPages {
 			return
 		}
 
@@ -101,19 +104,6 @@ func (s *crawlerService) CrawlWebsite(ctx context.Context, baseURL string, maxPa
 	})
 
 	c.OnRequest(func(r *colly.Request) {
-		s.visitedMutex.Lock()
-		defer s.visitedMutex.Unlock()
-
-		if s.visited[r.URL.String()] {
-			return
-		}
-
-		if len(result.URLs) >= maxPages {
-			r.Abort()
-			return
-		}
-
-		s.visited[r.URL.String()] = true
 		logger.Debugf(ctx, "Visiting: %s", r.URL.String())
 	})
 
@@ -132,6 +122,9 @@ func (s *crawlerService) CrawlWebsite(ctx context.Context, baseURL string, maxPa
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
+		if strings.Contains(err.Error(), "already visited") {
+			return
+		}
 		logger.Warnf(ctx, "Failed to crawl %s: %v", r.Request.URL.String(), err)
 		urlsMutex.Lock()
 		result.Failed = append(result.Failed, r.Request.URL.String())
