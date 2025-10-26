@@ -178,7 +178,7 @@ func (e *KeywordExtractor) ExtractKeywords(text string) []string {
 func (e *KeywordExtractor) extractChineseWords(text string) []string {
 	var words []string
 
-	for length := 6; length >= 2; length-- {
+	for length := 15; length >= 2; length-- {
 		runes := []rune(text)
 		for i := 0; i <= len(runes)-length; i++ {
 			word := string(runes[i : i+length])
@@ -228,6 +228,130 @@ func (e *KeywordExtractor) ProcessQAList(qaList []HistoricalQA) {
 	fmt.Printf("\n提取完成！共发现 %d 个不重复的关键词\n", len(e.keywordFreq))
 }
 
+func (e *KeywordExtractor) hasSignificantOverlap(word1, word2 string) bool {
+	runes1 := []rune(word1)
+	runes2 := []rune(word2)
+	
+	len1 := len(runes1)
+	len2 := len(runes2)
+	minLen := len1
+	if len2 < minLen {
+		minLen = len2
+	}
+	
+	if minLen < 2 {
+		return false
+	}
+	
+	overlapThreshold := minLen - 1
+	if overlapThreshold < 2 {
+		overlapThreshold = 2
+	}
+	
+	for i := overlapThreshold; i <= len1; i++ {
+		suffix := string(runes1[len1-i:])
+		if strings.HasPrefix(word2, suffix) && len([]rune(suffix)) >= overlapThreshold {
+			return true
+		}
+	}
+	
+	for i := overlapThreshold; i <= len2; i++ {
+		suffix := string(runes2[len2-i:])
+		if strings.HasPrefix(word1, suffix) && len([]rune(suffix)) >= overlapThreshold {
+			return true
+		}
+	}
+	
+	matchCount := 0
+	maxLen := len1
+	if len2 > maxLen {
+		maxLen = len2
+	}
+	for i := 0; i < minLen; i++ {
+		if i < len1 && i < len2 && runes1[i] == runes2[i] {
+			matchCount++
+		}
+	}
+	
+	if len1 == len2 && matchCount >= minLen*7/10 {
+		return true
+	}
+	
+	return false
+}
+
+func (e *KeywordExtractor) removeSubstringKeywords(keywords []KeywordInfo) []KeywordInfo {
+	sort.Slice(keywords, func(i, j int) bool {
+		lenI := len([]rune(keywords[i].Keyword))
+		lenJ := len([]rune(keywords[j].Keyword))
+		if lenI != lenJ {
+			return lenI > lenJ
+		}
+		if keywords[i].Frequency != keywords[j].Frequency {
+			return keywords[i].Frequency > keywords[j].Frequency
+		}
+		return keywords[i].Keyword < keywords[j].Keyword
+	})
+
+	allWords := make(map[string]KeywordInfo)
+	for _, kw := range keywords {
+		allWords[kw.Keyword] = kw
+	}
+
+	var result []KeywordInfo
+	removed := make(map[string]bool)
+
+	for _, kw := range keywords {
+		if removed[kw.Keyword] {
+			continue
+		}
+
+		shouldRemove := false
+		for otherWord := range allWords {
+			if otherWord == kw.Keyword || removed[otherWord] {
+				continue
+			}
+
+			otherLen := len([]rune(otherWord))
+			kwLen := len([]rune(kw.Keyword))
+
+			if strings.Contains(otherWord, kw.Keyword) {
+				if otherLen > kwLen {
+					shouldRemove = true
+					break
+				}
+			}
+
+			if e.hasSignificantOverlap(kw.Keyword, otherWord) {
+				if otherLen > kwLen {
+					shouldRemove = true
+					break
+				} else if otherLen == kwLen {
+					if otherWord < kw.Keyword {
+						shouldRemove = true
+						break
+					}
+				}
+			}
+		}
+
+		if !shouldRemove {
+			result = append(result, kw)
+		} else {
+			removed[kw.Keyword] = true
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Frequency != result[j].Frequency {
+			return result[i].Frequency > result[j].Frequency
+		}
+		return result[i].Keyword < result[j].Keyword
+	})
+
+	return result
+}
+
 func (e *KeywordExtractor) GetTopKeywords(minFreq int) []KeywordInfo {
 	var keywords []KeywordInfo
 
@@ -242,12 +366,7 @@ func (e *KeywordExtractor) GetTopKeywords(minFreq int) []KeywordInfo {
 		}
 	}
 
-	sort.Slice(keywords, func(i, j int) bool {
-		if keywords[i].Frequency != keywords[j].Frequency {
-			return keywords[i].Frequency > keywords[j].Frequency
-		}
-		return keywords[i].Keyword < keywords[j].Keyword
-	})
+	keywords = e.removeSubstringKeywords(keywords)
 
 	return keywords
 }
