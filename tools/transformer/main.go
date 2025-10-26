@@ -144,18 +144,18 @@ func (t *QADataTransformer) CheckFilterQA(qa HistoricalQA) bool {
 	}
 
 	// 检查客服回复轮次
-	if len(agentReplies)>2{
+	if len(agentReplies) > 2 {
 		return false
 	}
 
 	var maxLen int
 	for _, content := range agentReplies {
-		cl:= len([]rune(content))
-		if cl>maxLen{
-			maxLen=cl
+		cl := len([]rune(content))
+		if cl > maxLen {
+			maxLen = cl
 		}
 	}
-	if maxLen > 10{
+	if maxLen > 10 {
 		return false
 	}
 
@@ -197,7 +197,7 @@ func (t *QADataTransformer) CheckFilterQA(qa HistoricalQA) bool {
 			break
 		}
 	}
-	if hasLowValueReply  {
+	if hasLowValueReply {
 		return true
 	}
 
@@ -225,8 +225,6 @@ func (t *QADataTransformer) ValidateQA(qa HistoricalQA) bool {
 	if !hasValidContent {
 		return false
 	}
-
-
 
 	if t.CheckFilterQA(qa) {
 		t.stats.LowQuality++
