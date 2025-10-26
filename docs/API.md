@@ -1,4 +1,4 @@
-# WeKnora API 文档
+# c-cube API 文档
 
 ## 目录
 
@@ -20,7 +20,7 @@
 
 ## 概述
 
-WeKnora 提供了一系列 RESTful API，用于创建和管理知识库、检索知识，以及进行基于知识的问答。本文档详细描述了这些 API 的使用方式。
+c-cube 提供了一系列 RESTful API，用于创建和管理知识库、检索知识，以及进行基于知识的问答。本文档详细描述了这些 API 的使用方式。
 
 ## 基础信息
 
@@ -67,7 +67,7 @@ X-Request-ID: unique_request_id
 
 ## API 概览
 
-WeKnora API 按功能分为以下几类：
+c-cube API 按功能分为以下几类：
 
 1. **租户管理**：创建和管理租户账户
 2. **知识库管理**：创建、查询和管理知识库
@@ -101,8 +101,8 @@ WeKnora API 按功能分为以下几类：
 curl --location 'http://localhost:8080/api/v1/tenants' \
 --header 'Content-Type: application/json' \
 --data '{
-    "name": "weknora",
-    "description": "weknora tenants",
+    "name": "c-cube",
+    "description": "c-cube tenants",
     "business": "wechat",
     "retriever_engines": {
         "engines": [
@@ -125,8 +125,8 @@ curl --location 'http://localhost:8080/api/v1/tenants' \
 {
     "data": {
         "id": 10000,
-        "name": "weknora",
-        "description": "weknora tenants",
+        "name": "c-cube",
+        "description": "c-cube tenants",
         "api_key": "sk-aaLRAgvCRJcmtiL2vLMeB1FB5UV0Q-qB7DlTE1pJ9KA93XZG",
         "status": "active",
         "retriever_engines": {
@@ -168,8 +168,8 @@ curl --location 'http://localhost:8080/api/v1/tenants/10000' \
 {
     "data": {
         "id": 10000,
-        "name": "weknora",
-        "description": "weknora tenants",
+        "name": "c-cube",
+        "description": "c-cube tenants",
         "api_key": "sk-aaLRAgvCRJcmtiL2vLMeB1FB5UV0Q-qB7DlTE1pJ9KA93XZG",
         "status": "active",
         "retriever_engines": {
@@ -206,8 +206,8 @@ curl --location --request PUT 'http://localhost:8080/api/v1/tenants/10000' \
 --header 'Content-Type: application/json' \
 --header 'X-API-Key: sk-KREi84yPtahKxMtIMOW-Cxx2dxb9xROpUuDSpi3vbiC1QVDe' \
 --data '{
-    "name": "weknora new",
-    "description": "weknora tenants new",
+    "name": "c-cube new",
+    "description": "c-cube tenants new",
     "status": "active",
     "retriever_engines": {
         "engines": [
@@ -232,8 +232,8 @@ curl --location --request PUT 'http://localhost:8080/api/v1/tenants/10000' \
 {
     "data": {
         "id": 10000,
-        "name": "weknora new",
-        "description": "weknora tenants new",
+        "name": "c-cube new",
+        "description": "c-cube tenants new",
         "api_key": "sk-IKtd9JGV4-aPGQ6RiL8YJu9Vzb3-ae4lgFkjFJZmhvUn2mLu",
         "status": "active",
         "retriever_engines": {
@@ -296,8 +296,8 @@ curl --location 'http://localhost:8080/api/v1/tenants' \
         "items": [
             {
                 "id": 10002,
-                "name": "weknora",
-                "description": "weknora tenants",
+                "name": "c-cube",
+                "description": "c-cube tenants",
                 "api_key": "sk-An7_t_izCKFIJ4iht9Xjcjnj_MC48ILvwezEDki9ScfIa7KA",
                 "status": "active",
                 "retriever_engines": {
@@ -325,7 +325,7 @@ curl --location 'http://localhost:8080/api/v1/tenants' \
 }
 ```
 
-<div align="right"><a href="#weknora-api-文档">返回顶部 ↑</a></div>
+<div align="right"><a href="#c-cube-api-文档">返回顶部 ↑</a></div>
 
 ### 知识库管理API
 
@@ -348,8 +348,8 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases' \
 --header 'Content-Type: application/json' \
 --header 'X-API-Key: sk-vQHV2NZI_LK5W7wHQvH3yGYExX8YnhaHwZipUYbiZKCYJbBQ' \
 --data '{
-    "name": "weknora",
-    "description": "weknora description",
+    "name": "c-cube",
+    "description": "c-cube description",
     "chunking_config": {
         "chunk_size": 1000,
         "chunk_overlap": 200,
@@ -388,8 +388,8 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases' \
 {
     "data": {
         "id": "b5829e4a-3845-4624-a7fb-ea3b35e843b0",
-        "name": "weknora",
-        "description": "weknora description",
+        "name": "c-cube",
+        "description": "c-cube description",
         "tenant_id": 1,
         "chunking_config": {
             "chunk_size": 1000,
@@ -563,8 +563,8 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/b582
 --header 'Content-Type: application/json' \
 --header 'X-API-Key: sk-vQHV2NZI_LK5W7wHQvH3yGYExX8YnhaHwZipUYbiZKCYJbBQ' \
 --data '{
-    "name": "weknora new",
-    "description": "weknora description new",
+    "name": "c-cube new",
+    "description": "c-cube description new",
     "config": {
         "chunking_config": {
             "chunk_size": 1000,
@@ -593,8 +593,8 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/b582
 {
     "data": {
         "id": "b5829e4a-3845-4624-a7fb-ea3b35e843b0",
-        "name": "weknora new",
-        "description": "weknora description new",
+        "name": "c-cube new",
+        "description": "c-cube description new",
         "tenant_id": 1,
         "chunking_config": {
             "chunk_size": 1000,
@@ -703,7 +703,7 @@ curl --location --request GET 'http://localhost:8080/api/v1/knowledge-bases/kb-0
 }
 ```
 
-<div align="right"><a href="#weknora-api-文档">返回顶部 ↑</a></div>
+<div align="right"><a href="#c-cube-api-文档">返回顶部 ↑</a></div>
 
 ### 知识管理API
 
@@ -772,7 +772,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 --header 'X-API-Key: sk-vQHV2NZI_LK5W7wHQvH3yGYExX8YnhaHwZipUYbiZKCYJbBQ' \
 --header 'Content-Type: application/json' \
 --data '{
-    "url":"https://github.com/Tencent/WeKnora",
+    "url":"https://github.com/Tencent/c-cube",
     "enable_multimodel":true
 }'
 ```
@@ -788,7 +788,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
         "type": "url",
         "title": "",
         "description": "",
-        "source": "https://github.com/Tencent/WeKnora",
+        "source": "https://github.com/Tencent/c-cube",
         "parse_status": "processing",
         "enable_status": "disabled",
         "embedding_model_id": "dff7bc94-7885-4dd1-bfd5-bd96e4df2fc3",
@@ -831,7 +831,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
             "type": "url",
             "title": "",
             "description": "",
-            "source": "https://github.com/Tencent/WeKnora",
+            "source": "https://github.com/Tencent/c-cube",
             "parse_status": "pending",
             "enable_status": "disabled",
             "embedding_model_id": "dff7bc94-7885-4dd1-bfd5-bd96e4df2fc3",
@@ -922,7 +922,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge/batch?ids=9c8af585-ae15-
             "type": "url",
             "title": "",
             "description": "",
-            "source": "https://github.com/Tencent/WeKnora",
+            "source": "https://github.com/Tencent/c-cube",
             "parse_status": "pending",
             "enable_status": "disabled",
             "embedding_model_id": "dff7bc94-7885-4dd1-bfd5-bd96e4df2fc3",
@@ -1003,7 +1003,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-09cf-485b-a7b5-
 attachment
 ```
 
-<div align="right"><a href="#weknora-api-文档">返回顶部 ↑</a></div>
+<div align="right"><a href="#c-cube-api-文档">返回顶部 ↑</a></div>
 
 ### 模型管理API
 
@@ -1275,7 +1275,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/models/8fdc464d-8
 }
 ```
 
-<div align="right"><a href="#weknora-api-文档">返回顶部 ↑</a></div>
+<div align="right"><a href="#c-cube-api-文档">返回顶部 ↑</a></div>
 
 ### 分块管理API
 
@@ -1367,7 +1367,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/chunks/4c4e7c1a-0
 }
 ```
 
-<div align="right"><a href="#weknora-api-文档">返回顶部 ↑</a></div>
+<div align="right"><a href="#c-cube-api-文档">返回顶部 ↑</a></div>
 
 ### 会话管理API
 
@@ -1585,8 +1585,8 @@ curl --location --request PUT 'http://localhost:8080/api/v1/sessions/411d6b70-9a
 --header 'X-API-Key: sk-vQHV2NZI_LK5W7wHQvH3yGYExX8YnhaHwZipUYbiZKCYJbBQ' \
 --header 'Content-Type: application/json' \
 --data '{
-    "title": "weknora",
-    "description": "weknora description",
+    "title": "c-cube",
+    "description": "c-cube description",
     "knowledge_base_id": "kb-00000001",
     "max_rounds": 5,
     "enable_rewrite": true,
@@ -1622,8 +1622,8 @@ curl --location --request PUT 'http://localhost:8080/api/v1/sessions/411d6b70-9a
 {
     "data": {
         "id": "411d6b70-9a85-4d03-bb74-aab0fd8bd12f",
-        "title": "weknora",
-        "description": "weknora description",
+        "title": "c-cube",
+        "description": "c-cube description",
         "tenant_id": 1,
         "knowledge_base_id": "kb-00000001",
         "max_rounds": 5,
@@ -1725,7 +1725,7 @@ curl --location 'http://localhost:8080/api/v1/sessions/continue-stream/ceb9babb-
 **响应格式**:
 服务器端事件流（Server-Sent Events），与 `/knowledge-chat/:session_id` 返回结果一致
 
-<div align="right"><a href="#weknora-api-文档">返回顶部 ↑</a></div>
+<div align="right"><a href="#c-cube-api-文档">返回顶部 ↑</a></div>
 
 ### 聊天功能API
 
@@ -1769,7 +1769,7 @@ event: message
 data: {"id":"3475c004-0ada-4306-9d30-d7f5efce50d2","response_type":"answer","content":"","done":true,"knowledge_references":null}
 ```
 
-<div align="right"><a href="#weknora-api-文档">返回顶部 ↑</a></div>
+<div align="right"><a href="#c-cube-api-文档">返回顶部 ↑</a></div>
 
 ### 消息管理API
 
@@ -1947,7 +1947,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/messages/ceb9babb
 }
 ```
 
-<div align="right"><a href="#weknora-api-文档">返回顶部 ↑</a></div>
+<div align="right"><a href="#c-cube-api-文档">返回顶部 ↑</a></div>
 
 ### 评估功能API
 
@@ -2102,4 +2102,4 @@ curl --location 'http://localhost:8080/api/v1/evaluation' \
 }
 ```
 
-<div align="right"><a href="#weknora-api-文档">返回顶部 ↑</a></div>
+<div align="right"><a href="#c-cube-api-文档">返回顶部 ↑</a></div>
