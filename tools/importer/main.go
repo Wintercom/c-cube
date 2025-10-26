@@ -75,7 +75,7 @@ func (imp *QABatchImporter) ImportSinglePassage(data common.TransformedQA) error
 		return fmt.Errorf("创建请求失败: %w", err)
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", imp.token))
+	req.Header.Set("X-API-Key", imp.token)
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{
