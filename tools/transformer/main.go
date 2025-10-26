@@ -38,11 +38,6 @@ type Stats struct {
 	LowQuality int
 }
 
-type QualityScore struct {
-	Score   int
-	Reasons []string
-}
-
 type KeywordInfo struct {
 	Keyword   string `json:"keyword"`
 	Frequency int    `json:"frequency"`
@@ -57,23 +52,23 @@ func NewQADataTransformer() *QADataTransformer {
 
 func loadAdditionalKeywords(filePath string) map[string]bool {
 	keywords := make(map[string]bool)
-	
+
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return keywords
 	}
-	
+
 	var keywordList []KeywordInfo
 	if err := json.Unmarshal(data, &keywordList); err != nil {
 		return keywords
 	}
-	
+
 	for _, kw := range keywordList {
 		if kw.Keyword != "" {
 			keywords[kw.Keyword] = true
 		}
 	}
-	
+
 	return keywords
 }
 
@@ -187,12 +182,33 @@ func (t *QADataTransformer) CheckFilterQA(qa HistoricalQA) bool {
 		return false
 	}
 
-	techKeywords := map[string]bool{
-		"API": true, "SDK": true, "token": true, "配置": true, "参数": true, "代码": true,
-		"文档": true, "接口": true, "错误": true, "报错": true, "日志": true, "http": true,
-		"bucket": true, "空间": true, "域名": true, "证书": true, "转码": true,
+	localKeyWords := []string{
+		"API", "SDK", "token", "配置", "参数", "代码",
+		"文档", "接口", "错误", "报错", "日志", "http",
+		"bucket", "空间", "域名", "证书", "转码", "充值", "冻结", "解冻", "欠费",
+		"错误", "报错", "异常", "失败",
+		"配置", "设置", "参数", "选项",
+		"文件", "上传", "下载", "存储", "空间", "bucket",
+		"域名", "证书", "解析", "绑定", "备案", "验证",
+		"接口", "调用", "请求", "响应",
+		"代码", "脚本", "命令",
+		"数据", "字段", "记录",
+		"格式", "类型", "版本", "编码",
+		"权限", "认证", "授权", "密钥", "签名",
+		"转码", "分析", "检测",
+		"流量", "带宽", "延迟", "超时",
+		"日志", "监控", "统计",
+		"回调", "通知", "推送",
+		"查询", "搜索", "过滤",
+		"缓存", "队列", "bucket", "空间", "存储", "上传", "下载", "文件", "域名", "dns", "证书", "ssl", "cdn", "http", "https",
+		"解析", "验证", "绑定", "备案", "主机", "记录",
+		"ip", "端口", "协议", "网络", "连接", "刷新", "预热", "预取", "缓存", "参考",
 	}
-	
+	techKeywords := map[string]bool{}
+	for _, keyword := range localKeyWords {
+		techKeywords[keyword] = true
+	}
+
 	additionalKeywords := loadAdditionalKeywords("../keyword_extractor/keywords_output.json")
 	for keyword := range additionalKeywords {
 		techKeywords[keyword] = true
@@ -216,21 +232,21 @@ func (t *QADataTransformer) CheckFilterQA(qa HistoricalQA) bool {
 	lowValuePatterns := map[string]bool{
 		"您再看下": true, "已处理": true, "手动介入": true, "已经帮您": true,
 		"稍等": true, "正在处理": true, "麻烦您提供": true, "联系客服": true,
+		"好的": true,
 	}
-	hasLowValueReply := false
-	for _, reply := range qa.Replies {
-		content := t.CleanHTMLContent(reply.Content)
+	allLowValueReply := true
+	for _, reply := range agentReplies {
 		for pattern := range lowValuePatterns {
-			if strings.Contains(content, pattern) && len([]rune(content)) < 20 {
-				hasLowValueReply = true
+			if !strings.Contains(reply, pattern) {
+				allLowValueReply = false
 				break
 			}
 		}
-		if hasLowValueReply {
+		if allLowValueReply {
 			break
 		}
 	}
-	if hasLowValueReply {
+	if allLowValueReply {
 		return true
 	}
 
