@@ -100,18 +100,17 @@ func (t *QADataTransformer) BuildConversationalPassage(qa HistoricalQA) string {
 	sb.WriteString(strings.Repeat("-", 60))
 	sb.WriteString("\n")
 
-	for i, reply := range qa.Replies {
+	conversationNum := 0
+	for _, reply := range qa.Replies {
 		ownerLabel := "客户"
 		if reply.Owner == "agent" {
 			ownerLabel = "客服"
 		}
 
 		content := t.CleanHTMLContent(reply.Content)
-		if content == "" {
-			continue
-		}
+		conversationNum++
 
-		sb.WriteString(fmt.Sprintf("%d. [%s] %s\n", i+1, ownerLabel, content))
+		sb.WriteString(fmt.Sprintf("%d. [%s] %s\n", conversationNum, ownerLabel, content))
 		sb.WriteString("\n")
 	}
 
