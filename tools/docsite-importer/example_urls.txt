@@ -1,0 +1,12 @@
+# WeKnora 文档站 URL 列表示例
+# 每行一个 URL，# 开头的行为注释
+
+# Vue.js 官方文档
+https://vuejs.org/guide/introduction.html
+https://vuejs.org/guide/essentials/application.html
+https://vuejs.org/guide/essentials/template-syntax.html
+
+# React 官方文档
+https://react.dev/learn
+https://react.dev/learn/thinking-in-react
+https://react.dev/learn/describing-the-ui
