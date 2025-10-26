@@ -14,17 +14,15 @@ import (
 )
 
 type crawlerService struct {
-	maxDepth     int
-	maxPages     int
-	visitedMutex sync.RWMutex
-	visited      map[string]bool
+	maxDepth int
+	maxPages int
+	visited  sync.Map // 使用 sync.Map 替代 map+RWMutex，避免并发竞态
 }
 
 func NewCrawlerService() (interfaces.CrawlerService, error) {
 	return &crawlerService{
 		maxDepth: 5,
 		maxPages: 500,
-		visited:  make(map[string]bool),
 	}, nil
 }
 
@@ -35,9 +33,11 @@ func (s *crawlerService) CrawlWebsite(ctx context.Context, baseURL string, maxPa
 		maxPages = s.maxPages
 	}
 
-	s.visitedMutex.Lock()
-	s.visited = make(map[string]bool)
-	s.visitedMutex.Unlock()
+	// 重置 visited map（删除所有旧条目）
+	s.visited.Range(func(key, value interface{}) bool {
+		s.visited.Delete(key)
+		return true
+	})
 
 	result := &interfaces.CrawlResult{
 		URLs:      make([]string, 0),
@@ -88,18 +88,24 @@ func (s *crawlerService) CrawlWebsite(ctx context.Context, baseURL string, maxPa
 			return
 		}
 
-		s.visitedMutex.Lock()
-		alreadyVisited := s.visited[cleanURL]
-		urlCount := len(result.URLs)
-		if !alreadyVisited && urlCount < maxPages {
-			s.visited[cleanURL] = true
-		}
-		s.visitedMutex.Unlock()
-
-		if alreadyVisited || urlCount >= maxPages {
+		// 使用 sync.Map 的 LoadOrStore 实现原子操作
+		// 只有第一个成功存储的 goroutine 会返回 false，其他都返回 true
+		_, alreadyVisited := s.visited.LoadOrStore(cleanURL, true)
+		if alreadyVisited {
+			// URL 已被其他 goroutine 访问，直接返回
 			return
 		}
 
+		// 检查是否已达到最大页面数
+		urlsMutex.Lock()
+		urlCount := len(result.URLs)
+		urlsMutex.Unlock()
+		
+		if urlCount >= maxPages {
+			return
+		}
+
+		// 原子操作确保只有一个 goroutine 会访问此 URL
 		e.Request.Visit(cleanURL)
 	})
 
