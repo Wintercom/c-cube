@@ -127,10 +127,10 @@ func (imp *QABatchImporter) ImportBatch(qaList []common.TransformedQA, startInde
 
 		if (i+1)%imp.batchSize == 0 {
 			fmt.Printf("\n--- 已完成 %d/%d 条，暂停 0.5 秒 ---\n\n", i+1, len(qaList))
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(1000 * time.Millisecond)
 		}
 
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 
@@ -192,13 +192,13 @@ func truncateString(s string, maxLen int) string {
 
 func main() {
 	var (
-		apiURL      string
-		token       string
-		kbID        string
-		batchSize   int
-		startIndex  int
-		failedLog   string
-		showHelp    bool
+		apiURL     string
+		token      string
+		kbID       string
+		batchSize  int
+		startIndex int
+		failedLog  string
+		showHelp   bool
 	)
 
 	flag.StringVar(&apiURL, "api-url", "", "API 基础 URL (必填)")

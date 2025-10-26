@@ -31,16 +31,45 @@ type QADataTransformer struct {
 }
 
 type Stats struct {
-	Total   int
-	Success int
-	Failed  int
-	Skipped int
+	Total      int
+	Success    int
+	Failed     int
+	Skipped    int
+	LowQuality int
+}
+
+type KeywordInfo struct {
+	Keyword   string `json:"keyword"`
+	Frequency int    `json:"frequency"`
+	Category  string `json:"category"`
 }
 
 func NewQADataTransformer() *QADataTransformer {
 	return &QADataTransformer{
 		stats: Stats{},
 	}
+}
+
+func loadAdditionalKeywords(filePath string) map[string]bool {
+	keywords := make(map[string]bool)
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return keywords
+	}
+
+	var keywordList []KeywordInfo
+	if err := json.Unmarshal(data, &keywordList); err != nil {
+		return keywords
+	}
+
+	for _, kw := range keywordList {
+		if kw.Keyword != "" {
+			keywords[kw.Keyword] = true
+		}
+	}
+
+	return keywords
 }
 
 func (t *QADataTransformer) CleanHTMLContent(htmlText string) string {
@@ -112,8 +141,6 @@ func (t *QADataTransformer) BuildConversationalPassage(qa HistoricalQA) string {
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString(strings.Repeat("=", 60))
-
 	return sb.String()
 }
 
@@ -125,6 +152,105 @@ func (t *QADataTransformer) ExtractMetadata(qa HistoricalQA) map[string]interfac
 		"import_date": time.Now().Format("2006-01-02"),
 		"reply_count": len(qa.Replies),
 	}
+}
+
+func (t *QADataTransformer) CheckFilterQA(qa HistoricalQA) bool {
+	agentReplies := []string{}
+	for _, reply := range qa.Replies {
+		if reply.Owner == "agent" {
+			agentReplies = append(agentReplies, t.CleanHTMLContent(reply.Content))
+		}
+	}
+
+	if len(agentReplies) == 0 {
+		return true
+	}
+
+	// 检查客服回复轮次
+	if len(agentReplies) > 2 {
+		return false
+	}
+
+	var maxLen int
+	for _, content := range agentReplies {
+		cl := len([]rune(content))
+		if cl > maxLen {
+			maxLen = cl
+		}
+	}
+	if maxLen > 10 {
+		return false
+	}
+
+	localKeyWords := []string{
+		"API", "SDK", "token", "配置", "参数", "代码",
+		"文档", "接口", "错误", "报错", "日志", "http",
+		"bucket", "空间", "域名", "证书", "转码", "充值", "冻结", "解冻", "欠费",
+		"错误", "报错", "异常", "失败",
+		"配置", "设置", "参数", "选项",
+		"文件", "上传", "下载", "存储", "空间", "bucket",
+		"域名", "证书", "解析", "绑定", "备案", "验证",
+		"接口", "调用", "请求", "响应",
+		"代码", "脚本", "命令",
+		"数据", "字段", "记录",
+		"格式", "类型", "版本", "编码",
+		"权限", "认证", "授权", "密钥", "签名",
+		"转码", "分析", "检测",
+		"流量", "带宽", "延迟", "超时",
+		"日志", "监控", "统计",
+		"回调", "通知", "推送",
+		"查询", "搜索", "过滤",
+		"缓存", "队列", "bucket", "空间", "存储", "上传", "下载", "文件", "域名", "dns", "证书", "ssl", "cdn", "http", "https",
+		"解析", "验证", "绑定", "备案", "主机", "记录",
+		"ip", "端口", "协议", "网络", "连接", "刷新", "预热", "预取", "缓存", "参考",
+	}
+	techKeywords := map[string]bool{}
+	for _, keyword := range localKeyWords {
+		techKeywords[keyword] = true
+	}
+
+	additionalKeywords := loadAdditionalKeywords("../keyword_extractor/keywords_output.json")
+	for keyword := range additionalKeywords {
+		techKeywords[keyword] = true
+	}
+	hasTechContent := false
+	for _, reply := range agentReplies {
+		for keyword := range techKeywords {
+			if strings.Contains(reply, keyword) {
+				hasTechContent = true
+				break
+			}
+		}
+		if hasTechContent {
+			break
+		}
+	}
+	if hasTechContent {
+		return false
+	}
+
+	lowValuePatterns := map[string]bool{
+		"您再看下": true, "已处理": true, "手动介入": true, "已经帮您": true,
+		"稍等": true, "正在处理": true, "麻烦您提供": true, "联系客服": true,
+		"好的": true,
+	}
+	allLowValueReply := true
+	for _, reply := range agentReplies {
+		for pattern := range lowValuePatterns {
+			if !strings.Contains(reply, pattern) {
+				allLowValueReply = false
+				break
+			}
+		}
+		if allLowValueReply {
+			break
+		}
+	}
+	if allLowValueReply {
+		return true
+	}
+
+	return false
 }
 
 func (t *QADataTransformer) ValidateQA(qa HistoricalQA) bool {
@@ -145,7 +271,18 @@ func (t *QADataTransformer) ValidateQA(qa HistoricalQA) bool {
 		}
 	}
 
-	return hasValidContent
+	if !hasValidContent {
+		return false
+	}
+
+	if t.CheckFilterQA(qa) {
+		t.stats.LowQuality++
+		fmt.Printf("  QA ID %d 因为客服回复质量太差而被过滤掉\n",
+			qa.ID)
+		return false
+	}
+
+	return true
 }
 
 func (t *QADataTransformer) TransformSingleQA(qa HistoricalQA) (*common.TransformedQA, error) {
@@ -195,6 +332,7 @@ func (t *QADataTransformer) PrintStats() {
 	fmt.Printf("  总计: %d 条\n", t.stats.Total)
 	fmt.Printf("  成功: %d 条\n", t.stats.Success)
 	fmt.Printf("  跳过: %d 条\n", t.stats.Skipped)
+	fmt.Printf("  低质量过滤: %d 条\n", t.stats.LowQuality)
 	fmt.Printf("  失败: %d 条\n", t.stats.Failed)
 	fmt.Println(strings.Repeat("=", 60))
 }
