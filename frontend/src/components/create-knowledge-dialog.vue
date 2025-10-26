@@ -191,6 +191,7 @@ const handleClose = () => {
               variant="outline"
               @click="handleFileSelect"
               :disabled="isCreating"
+              class="file-select-button"
             >
               <t-icon name="upload" />
               选择文件
@@ -264,6 +265,18 @@ const handleClose = () => {
 
   .file-upload-area {
     margin-bottom: 8px;
+    
+    .file-select-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      
+      :deep(.t-icon) {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 4px;
+      }
+    }
   }
 
   .file-list {

@@ -435,7 +435,7 @@ const handleCreateSuccess = () => {
 }
 
 :deep(.t-dialog__position.t-dialog--top) {
-  padding-top: 40vh !important;
+  padding-top: 15vh !important;
 }
 
 .circle-wrap {

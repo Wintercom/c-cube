@@ -39,14 +39,6 @@
                             {{ kb.name }}
                         </div>
                     </div>
-                    <t-popup overlayInnerClassName="upload-popup" class="placement top center" content="上传知识"
-                        placement="top" show-arrow destroy-on-close>
-                        <div class="upload-file-wrap" @click.stop="uploadFile" variant="outline"
-                             v-if="item.path === 'knowledge-bases' && $route.name === 'knowledgeBaseDetail'">
-                            <img class="upload-file-icon" :class="[item.path == currentpath ? 'active-upload' : '']"
-                                :src="getImgSrc(fileAddIcon)" alt="">
-                        </div>
-                    </t-popup>
                 </div>
                 <div ref="submenuscrollContainer" @scroll="handleScroll" class="submenu" v-if="item.children">
                     <div class="submenu_item_p" v-for="(subitem, subindex) in item.children" :key="subindex"

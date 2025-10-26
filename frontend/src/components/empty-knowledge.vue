@@ -109,6 +109,18 @@ const handleCreateSuccess = () => {
     .action-buttons {
         display: flex;
         gap: 12px;
+        align-items: center;
+        
+        :deep(.t-button) {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            
+            .t-icon {
+                display: inline-flex;
+                align-items: center;
+            }
+        }
     }
 }
 </style>
