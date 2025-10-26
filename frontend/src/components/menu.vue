@@ -829,6 +829,8 @@ watch(() => route.params.kbId, () => {
     justify-content: center;
     width: 16px;
     height: 16px;
+    padding: 8px;
+    margin: -8px;
     
     &.rotate-180 {
         transform: rotate(180deg);
