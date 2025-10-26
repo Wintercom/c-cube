@@ -42,5 +42,53 @@
         "owner": "customer"
       }
     ]
+  },
+  {
+    "id": 397429,
+    "title": "空间管理下的多媒体样式文件超过500M就不能转m3u8了？",
+    "description": "空间管理下的多媒体样式文件超过500M就不能转m3u8了？",
+    "category": "对象存储｜其他类咨询",
+    "replies": [
+      {
+        "content": "<p><font color=\"#333333\" face=\"PingFang SC, -apple-system, BlinkMacSystemFont Segoe UI, Microsoft YaHei Roboto Helvetica Neue, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol\">空间管理下的多媒体样式文件超过500M就不能转m3u8了？</font><br></p>",
+        "owner": "customer"
+      },
+      {
+        "content": "<p>您好，转码的任务id提供下，这边看下</p>",
+        "owner": "agent"
+      },
+      {
+        "content": "我是先上传文件 ，然后在更多操作里找不到转码的选项。&nbsp;&nbsp;",
+        "owner": "customer"
+      },
+      {
+        "content": "<p>就这个地方<img src=\"https://dn-odum9helk.qbox.me/FiUlDcWI2g8i-sl8gOjqtsDOksOQ\" style=\"width: 886px;\"><br></p>",
+        "owner": "customer"
+      },
+      {
+        "content": "<p>您好，您这边是全部视频都需要转为m3u8？</p>",
+        "owner": "agent"
+      },
+      {
+        "content": "<p>如果只是单个文件需要处理，可以参考下这个文档进行转码</p><p>https://developer.qiniu.com/dora/6486/submit-transcoding-task-quickly</p>",
+        "owner": "agent"
+      }
+    ]
+  },
+  {
+    "id": 397430,
+    "title": "创建域名一直处理中",
+    "description": "创建域名一直处理中",
+    "category": "CDN｜配置问题",
+    "replies": [
+      {
+        "content": "<p>创建域名一直处理中<br></p>",
+        "owner": "customer"
+      },
+      {
+        "content": "<p>您好</p><p>已经帮您手动介入处理完成</p>",
+        "owner": "agent"
+      }
+    ]
   }
 ]
