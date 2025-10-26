@@ -92,24 +92,6 @@ func (s *importTaskService) AddTaskResult(ctx context.Context, taskID string, re
 	return s.repo.AddResult(ctx, taskID, result)
 }
 
-// shouldSkipURL checks if a URL should be skipped based on file extensions and patterns
-func shouldSkipURL(urlStr string) bool {
-	skipPatterns := []string{
-		".pdf", ".zip", ".tar", ".gz", ".jpg", ".jpeg", ".png", ".gif",
-		".mp4", ".mp3", ".avi", ".mov", ".css", ".js", ".woff", ".ttf",
-		"/api/", "/download/", "/file/", "/asset/", "/static/",
-	}
-
-	lowerURL := strings.ToLower(urlStr)
-	for _, pattern := range skipPatterns {
-		if strings.Contains(lowerURL, pattern) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // ProcessTask implements serial crawling and importing
 // Each URL is crawled and immediately imported, single failures don't block subsequent tasks
 func (s *importTaskService) ProcessTask(ctx context.Context, task *types.ImportTask) {
