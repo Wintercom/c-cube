@@ -837,6 +837,10 @@ func (s *knowledgeService) processDocumentFromURL(ctx context.Context,
 	if resp.GetTitle() != "" && knowledge.Title == "" {
 		knowledge.Title = resp.GetTitle()
 		logger.GetLogger(ctx).Infof("Extracted title from URL: %s", knowledge.Title)
+		// Update database immediately
+		if err := s.repo.UpdateKnowledge(ctx, knowledge); err != nil {
+			logger.GetLogger(ctx).WithField("error", err).Errorf("Failed to update knowledge title")
+		}
 	}
 
 	// Process and store chunks
