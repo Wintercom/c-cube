@@ -11,10 +11,12 @@
                     @mouseenter="mouseenteMenu(item.path)" @mouseleave="mouseleaveMenu(item.path)"
                      :class="['menu_item', item.childrenPath && item.childrenPath == currentpath ? 'menu_item_c_active' : isMenuItemActive(item.path) ? 'menu_item_active' : '']">
                     <div class="menu_item-box">
-                        <div class="menu_icon">
-                            <img class="icon" :src="getImgSrc(item.icon == 'zhishiku' ? knowledgeIcon :  item.icon == 'logout' ? logoutIcon : item.icon == 'tenant' ? tenantIcon : prefixIcon)" alt="">
+                        <div class="menu_content">
+                            <div class="menu_icon">
+                                <img class="icon" :src="getImgSrc(item.icon == 'zhishiku' ? knowledgeIcon :  item.icon == 'logout' ? logoutIcon : item.icon == 'tenant' ? tenantIcon : prefixIcon)" alt="">
+                            </div>
+                            <span class="menu_title" :title="item.path === 'knowledge-bases' && kbMenuItem ? kbMenuItem.title : item.title">{{ item.path === 'knowledge-bases' && kbMenuItem ? kbMenuItem.title : item.title }}</span>
                         </div>
-                        <span class="menu_title" :title="item.path === 'knowledge-bases' && kbMenuItem ? kbMenuItem.title : item.title">{{ item.path === 'knowledge-bases' && kbMenuItem ? kbMenuItem.title : item.title }}</span>
                         <!-- 知识库切换下拉箭头 -->
                         <div v-if="item.path === 'knowledge-bases' && isInKnowledgeBase" 
                              class="kb-dropdown-icon" 
@@ -39,14 +41,6 @@
                             {{ kb.name }}
                         </div>
                     </div>
-                    <t-popup overlayInnerClassName="upload-popup" class="placement top center" content="上传知识"
-                        placement="top" show-arrow destroy-on-close>
-                        <div class="upload-file-wrap" @click.stop="uploadFile" variant="outline"
-                             v-if="item.path === 'knowledge-bases' && $route.name === 'knowledgeBaseDetail'">
-                            <img class="upload-file-icon" :class="[item.path == currentpath ? 'active-upload' : '']"
-                                :src="getImgSrc(fileAddIcon)" alt="">
-                        </div>
-                    </t-popup>
                 </div>
                 <div ref="submenuscrollContainer" @scroll="handleScroll" class="submenu" v-if="item.children">
                     <div class="submenu_item_p" v-for="(subitem, subindex) in item.children" :key="subindex"
@@ -109,8 +103,6 @@
             </div>
         </div>
         
-        <input type="file" @change="upload" style="display: none" ref="uploadInput"
-            accept=".pdf,.docx,.doc,.txt,.md,.jpg,.jpeg,.png" />
     </div>
 </template>
 
@@ -119,12 +111,10 @@ import { storeToRefs } from 'pinia';
 import { onMounted, watch, computed, ref, reactive, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getSessionsList, delSession } from "@/api/chat/index";
-import { getKnowledgeBaseById, listKnowledgeBases, uploadKnowledgeFile } from '@/api/knowledge-base';
-import { kbFileTypeVerification } from '@/utils/index';
+import { getKnowledgeBaseById, listKnowledgeBases } from '@/api/knowledge-base';
 import { useMenuStore } from '@/stores/menu';
 import { useAuthStore } from '@/stores/auth';
 import { MessagePlugin } from "tdesign-vue-next";
-let uploadInput = ref();
 const usemenuStore = useMenuStore();
 const authStore = useAuthStore();
 const route = useRoute();
@@ -223,91 +213,6 @@ const kbMenuItem = computed(() => {
 })
 
 const loading = ref(false)
-const uploadFile = async () => {
-    // 获取当前知识库ID
-    const currentKbId = await getCurrentKbId();
-    
-    // 检查当前知识库的初始化状态
-    if (currentKbId) {
-        try {
-            const kbResponse = await getKnowledgeBaseById(currentKbId);
-            const kb = kbResponse.data;
-            
-            // 检查知识库是否已初始化（有 EmbeddingModelID 和 SummaryModelID）
-            if (!kb.embedding_model_id || kb.embedding_model_id === '' || 
-                !kb.summary_model_id || kb.summary_model_id === '') {
-                MessagePlugin.warning("该知识库尚未完成初始化配置，请先前往设置页面配置模型信息后再上传文件");
-                return;
-            }
-        } catch (error) {
-            console.error('获取知识库信息失败:', error);
-            MessagePlugin.error("获取知识库信息失败，无法上传文件");
-            return;
-        }
-    }
-    
-    uploadInput.value.click()
-}
-const upload = async (e: any) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    // 文件类型验证
-    if (kbFileTypeVerification(file)) {
-        return;
-    }
-    
-    // 获取当前知识库ID
-    const currentKbId = (route.params as any)?.kbId as string;
-    if (!currentKbId) {
-        MessagePlugin.error("缺少知识库ID");
-        return;
-    }
-    
-    try {
-        const result = await uploadKnowledgeFile(currentKbId, { file });
-        const responseData = result as any;
-        console.log('上传API返回结果:', responseData);
-        
-        // 如果没有抛出异常，就认为上传成功，先触发刷新事件
-        console.log('文件上传完成，发送事件通知页面刷新，知识库ID:', currentKbId);
-        window.dispatchEvent(new CustomEvent('knowledgeFileUploaded', { 
-            detail: { kbId: currentKbId } 
-        }));
-        
-        // 然后处理UI消息
-        // 判断上传是否成功 - 检查多种可能的成功标识
-        const isSuccess = responseData.success || responseData.code === 200 || responseData.status === 'success' || (!responseData.error && responseData);
-        
-        if (isSuccess) {
-            MessagePlugin.info("上传成功！");
-        } else {
-            // 改进错误信息提取逻辑
-            let errorMessage = "上传失败！";
-            if (responseData.error && responseData.error.message) {
-                errorMessage = responseData.error.message;
-            } else if (responseData.message) {
-                errorMessage = responseData.message;
-            }
-            if (responseData.code === 'duplicate_file' || (responseData.error && responseData.error.code === 'duplicate_file')) {
-                errorMessage = "文件已存在";
-            }
-            MessagePlugin.error(errorMessage);
-        }
-    } catch (err: any) {
-        let errorMessage = "上传失败！";
-        if (err.code === 'duplicate_file') {
-            errorMessage = "文件已存在";
-        } else if (err.error && err.error.message) {
-            errorMessage = err.error.message;
-        } else if (err.message) {
-            errorMessage = err.message;
-        }
-        MessagePlugin.error(errorMessage);
-    } finally {
-        uploadInput.value.value = "";
-    }
-}
 const mouseenteBotDownr = (val: number) => {
     activeSubmenu.value = val;
 }
@@ -426,7 +331,6 @@ watch([() => route.name, () => route.params], (newvalue) => {
     // 路由变化时更新图标状态
     getIcon(nameStr);
 });
-let fileAddIcon = ref('file-add-green.svg');
 let knowledgeIcon = ref('zhishiku-green.svg');
 let prefixIcon = ref('prefixIcon.svg');
 let logoutIcon = ref('logout.svg');
@@ -437,9 +341,6 @@ let pathPrefix = ref(route.name)
       const kbActiveState = getIconActiveState('knowledge-bases');
       const creatChatActiveState = getIconActiveState('creatChat');
       const tenantActiveState = getIconActiveState('tenant');
-      
-      // 上传图标：只在知识库相关页面显示绿色
-      fileAddIcon.value = kbActiveState.isKbActive ? 'file-add-green.svg' : 'file-add.svg';
       
       // 知识库图标：只在知识库页面显示绿色
       knowledgeIcon.value = kbActiveState.isKbActive ? 'zhishiku-green.svg' : 'zhishiku.svg';
@@ -640,30 +541,6 @@ watch(() => route.params.kbId, () => {
     }
 
 
-    .upload-file-wrap {
-        padding: 6px;
-        border-radius: 3px;
-        height: 32px;
-        width: 32px;
-        box-sizing: border-box;
-    }
-
-    .upload-file-wrap:hover {
-        background-color: #dbede4;
-        color: #07C05F;
-
-    }
-
-    .upload-file-icon {
-        width: 20px;
-        height: 20px;
-        color: rgba(0, 0, 0, 0.6);
-    }
-
-    .active-upload {
-        color: #07C05F;
-    }
-
     .menu_item_active {
         border-radius: 4px;
         background: #07c05f1a !important;
@@ -828,7 +705,7 @@ watch(() => route.params.kbId, () => {
 
 /* 知识库下拉菜单样式 */
 .kb-dropdown-icon {
-    margin-left: auto;
+    flex: 0 0 auto;
     color: #666;
     transition: transform 0.3s ease, color 0.2s ease;
     cursor: pointer;
@@ -837,6 +714,8 @@ watch(() => route.params.kbId, () => {
     justify-content: center;
     width: 16px;
     height: 16px;
+    padding: 8px;
+    margin: -8px;
     
     &.rotate-180 {
         transform: rotate(180deg);
@@ -906,6 +785,13 @@ watch(() => route.params.kbId, () => {
     align-items: center;
     width: 100%;
     position: relative;
+}
+
+.menu_content {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
 }
 
 .menu_box {
