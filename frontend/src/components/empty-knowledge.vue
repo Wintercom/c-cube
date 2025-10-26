@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import DocsiteImportDialog from './docsite-import-dialog.vue';
+import CreateKnowledgeDialog from './create-knowledge-dialog.vue';
 
 const props = defineProps<{
   kbId?: string;
@@ -11,12 +12,21 @@ const emit = defineEmits<{
 }>();
 
 const showDocsiteDialog = ref(false);
+const showCreateDialog = ref(false);
 
 const handleImportClick = () => {
   showDocsiteDialog.value = true;
 };
 
+const handleCreateClick = () => {
+  showCreateDialog.value = true;
+};
+
 const handleImportSuccess = () => {
+  emit('refresh');
+};
+
+const handleCreateSuccess = () => {
   emit('refresh');
 };
 </script>
@@ -28,11 +38,22 @@ const handleImportSuccess = () => {
         <span class="empty-type-txt">text、markdown格式文件，不超过200K</span>
         <div class="import-actions">
           <span class="divider-text">或者</span>
-          <t-button theme="default" variant="outline" @click="handleImportClick">
-            <t-icon name="link" />
-            从文档站导入
-          </t-button>
+          <div class="action-buttons">
+            <t-button theme="primary" @click="handleCreateClick">
+              <t-icon name="add" />
+              创建知识
+            </t-button>
+            <t-button theme="default" variant="outline" @click="handleImportClick">
+              <t-icon name="link" />
+              从文档站导入
+            </t-button>
+          </div>
         </div>
+        <CreateKnowledgeDialog 
+          v-model:visible="showCreateDialog" 
+          :kb-id="kbId || ''"
+          @success="handleCreateSuccess"
+        />
         <DocsiteImportDialog 
           v-model:visible="showDocsiteDialog" 
           :kb-id="kbId || ''"
@@ -83,6 +104,27 @@ const handleImportSuccess = () => {
         color: #00000066;
         font-size: 14px;
         margin: 8px 0;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        
+        :deep(.t-button) {
+            display: inline-flex;
+            justify-content: center;
+            
+            .t-button__text {
+                display: inline-flex;
+                align-items: center;
+            }
+            
+            .t-icon {
+                display: inline-flex;
+                align-items: center;
+            }
+        }
     }
 }
 </style>

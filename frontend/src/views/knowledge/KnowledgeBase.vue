@@ -6,6 +6,7 @@ import useKnowledgeBase from '@/hooks/useKnowledgeBase';
 import { useRoute, useRouter } from 'vue-router';
 import EmptyKnowledge from '@/components/empty-knowledge.vue';
 import DocsiteImportDialog from '@/components/docsite-import-dialog.vue';
+import CreateKnowledgeDialog from '@/components/create-knowledge-dialog.vue';
 import { getSessionsList, createSessions, generateSessionsTitle } from "@/api/chat/index";
 import { useMenuStore } from '@/stores/menu';
 import { MessagePlugin } from 'tdesign-vue-next';
@@ -26,6 +27,7 @@ let knowledge = ref<KnowledgeCard>({ id: '', parse_status: '' })
 let knowledgeIndex = ref(-1)
 let knowledgeScroll = ref()
 let showDocsiteDialog = ref(false)
+let showCreateDialog = ref(false)
 let page = 1;
 let pageSize = 35;
 const getPageSize = () => {
@@ -232,6 +234,14 @@ const openDocsiteImport = () => {
 const handleDocsiteImportSuccess = () => {
   handleRefresh();
 };
+
+const openCreateDialog = () => {
+  showCreateDialog.value = true;
+};
+
+const handleCreateSuccess = () => {
+  handleRefresh();
+};
 </script>
 
 <template>
@@ -247,6 +257,13 @@ const handleDocsiteImportSuccess = () => {
       <t-icon name="link" size="20px" />
     </t-button>
     <div class="knowledge-card-wrap" ref="knowledgeScroll" @scroll="handleScroll">
+      <div class="knowledge-card create-card" @click.stop="openCreateDialog">
+        <div class="create-card-content">
+          <t-icon name="add" class="create-icon" />
+          <span class="create-title">创建知识</span>
+          <span class="create-desc">从URL导入或上传文件</span>
+        </div>
+      </div>
       <div class="knowledge-card" v-for="(item, index) in cardList" :key="index" @click="openCardDetails(item)">
         <div class="card-content">
           <div class="card-content-nav">
@@ -300,6 +317,11 @@ const handleDocsiteImportSuccess = () => {
     </div>
     <InputField @send-msg="sendMsg"></InputField>
     <DocContent :visible="isCardDetails" :details="details" @closeDoc="closeDoc" @getDoc="getDoc"></DocContent>
+    <CreateKnowledgeDialog 
+      v-model:visible="showCreateDialog" 
+      :kb-id="kbId"
+      @success="handleCreateSuccess"
+    />
     <DocsiteImportDialog 
       v-model:visible="showDocsiteDialog" 
       :kb-id="kbId"
@@ -413,7 +435,7 @@ const handleDocsiteImportSuccess = () => {
 }
 
 :deep(.t-dialog__position.t-dialog--top) {
-  padding-top: 40vh !important;
+  padding-top: 15vh !important;
 }
 
 .circle-wrap {
@@ -597,6 +619,48 @@ const handleDocsiteImportSuccess = () => {
 
 .knowledge-card:hover {
   border: 2px solid #07c05f;
+}
+
+.create-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+  border: 2px dashed #dcdcdc;
+  transition: all 0.3s ease;
+
+  &:hover {
+    border: 2px dashed #07c05f;
+    background: linear-gradient(135deg, #f0fff4 0%, #ffffff 100%);
+  }
+
+  .create-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .create-icon {
+    font-size: 48px;
+    color: #07c05f;
+    margin-bottom: 12px;
+  }
+
+  .create-title {
+    color: #000000e6;
+    font-family: "PingFang SC";
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .create-desc {
+    color: #00000066;
+    font-family: "PingFang SC";
+    font-size: 12px;
+  }
 }
 
 .knowledge-card-upload {

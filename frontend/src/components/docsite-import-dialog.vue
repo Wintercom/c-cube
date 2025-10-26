@@ -18,7 +18,6 @@ const router = useRouter();
 const baseUrl = ref('');
 const maxPages = ref(100);
 const isImporting = ref(false);
-const showAdvanced = ref(false);
 
 const dialogVisible = computed({
   get: () => props.visible,
@@ -82,7 +81,6 @@ const handleImport = async () => {
 const handleClose = () => {
   baseUrl.value = '';
   maxPages.value = 100;
-  showAdvanced.value = false;
   emit('update:visible', false);
 };
 </script>
@@ -114,23 +112,16 @@ const handleClose = () => {
         <span class="form-hint">请输入完整的文档站URL地址</span>
       </div>
 
-      <div class="advanced-toggle" @click="showAdvanced = !showAdvanced">
-        <t-icon :name="showAdvanced ? 'chevron-down' : 'chevron-right'" />
-        <span>高级配置</span>
-      </div>
-
-      <div v-show="showAdvanced" class="advanced-section">
-        <div class="form-item">
-          <label class="form-label">最大页面数</label>
-          <t-input-number
-            v-model="maxPages"
-            :min="1"
-            :max="500"
-            :disabled="isImporting"
-            theme="normal"
-          />
-          <span class="form-hint">限制爬取的最大页面数量 (1-500)</span>
-        </div>
+      <div class="form-item">
+        <label class="form-label">最大页面数</label>
+        <t-input-number
+          v-model="maxPages"
+          :min="1"
+          :max="500"
+          :disabled="isImporting"
+          theme="normal"
+        />
+        <span class="form-hint">限制爬取的最大页面数量 (1-500)</span>
       </div>
 
       <div v-if="isImporting" class="importing-status">
@@ -167,29 +158,6 @@ const handleClose = () => {
       color: #00000066;
       font-size: 12px;
     }
-  }
-
-  .advanced-toggle {
-    display: flex;
-    align-items: center;
-    margin-bottom: 16px;
-    color: #0052d9;
-    font-size: 14px;
-    cursor: pointer;
-    user-select: none;
-
-    &:hover {
-      opacity: 0.8;
-    }
-
-    span {
-      margin-left: 4px;
-    }
-  }
-
-  .advanced-section {
-    padding-left: 20px;
-    border-left: 2px solid #f3f3f3;
   }
 
   .importing-status {

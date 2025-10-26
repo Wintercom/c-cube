@@ -89,7 +89,6 @@ func (t *QADataTransformer) stripHTMLSimple(htmlText string) string {
 func (t *QADataTransformer) BuildConversationalPassage(qa HistoricalQA) string {
 	var sb strings.Builder
 
-	sb.WriteString(strings.Repeat("=", 60))
 	sb.WriteString("\n")
 	sb.WriteString(fmt.Sprintf("问题标题: %s\n", t.CleanHTMLContent(qa.Title)))
 	sb.WriteString("\n")
@@ -103,7 +102,6 @@ func (t *QADataTransformer) BuildConversationalPassage(qa HistoricalQA) string {
 	sb.WriteString("\n")
 
 	sb.WriteString("对话记录:\n")
-	sb.WriteString(strings.Repeat("-", 60))
 	sb.WriteString("\n")
 
 	conversationNum := 0
