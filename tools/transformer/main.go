@@ -159,14 +159,14 @@ func (t *QADataTransformer) CheckFilterQA(qa HistoricalQA) bool {
 		return false
 	}
 
-	techKeywords := []string{
-		"API", "SDK", "token", "配置", "参数", "代码",
-		"文档", "接口", "错误", "报错", "日志", "http",
-		"bucket", "空间", "域名", "证书", "转码",
+	techKeywords := map[string]bool{
+		"API": true, "SDK": true, "token": true, "配置": true, "参数": true, "代码": true,
+		"文档": true, "接口": true, "错误": true, "报错": true, "日志": true, "http": true,
+		"bucket": true, "空间": true, "域名": true, "证书": true, "转码": true,
 	}
 	hasTechContent := false
 	for _, reply := range agentReplies {
-		for _, keyword := range techKeywords {
+		for keyword := range techKeywords {
 			if strings.Contains(reply, keyword) {
 				hasTechContent = true
 				break
@@ -180,14 +180,14 @@ func (t *QADataTransformer) CheckFilterQA(qa HistoricalQA) bool {
 		return false
 	}
 
-	lowValuePatterns := []string{
-		"您再看下", "已处理", "手动介入", "已经帮您",
-		"稍等", "正在处理", "麻烦您提供", "联系客服",
+	lowValuePatterns := map[string]bool{
+		"您再看下": true, "已处理": true, "手动介入": true, "已经帮您": true,
+		"稍等": true, "正在处理": true, "麻烦您提供": true, "联系客服": true,
 	}
 	hasLowValueReply := false
 	for _, reply := range qa.Replies {
 		content := t.CleanHTMLContent(reply.Content)
-		for _, pattern := range lowValuePatterns {
+		for pattern := range lowValuePatterns {
 			if strings.Contains(content, pattern) && len([]rune(content)) < 20 {
 				hasLowValueReply = true
 				break
