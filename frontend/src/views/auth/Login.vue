@@ -5,7 +5,7 @@
       <!-- 系统Logo和标题 -->
       <div class="login-header">
         <div class="logo">
-          <img src="@/assets/img/weknora.png" alt="WeKnora" class="logo-img" />
+          <img src="@/assets/img/logo.png" alt="WeKnora" class="logo-img" />
         </div>
         <p class="login-subtitle">基于大模型的文档理解与语义检索框架</p>
       </div>
