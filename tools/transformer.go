@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"html"
+	stdhtml "html"
 	"os"
 	"regexp"
 	"strings"
@@ -64,7 +64,7 @@ func (t *QADataTransformer) CleanHTMLContent(htmlText string) string {
 	}
 	extractText(doc)
 
-	result := html.UnescapeString(text.String())
+	result := stdhtml.UnescapeString(text.String())
 	result = regexp.MustCompile(`\s+`).ReplaceAllString(result, " ")
 	result = regexp.MustCompile(`\n{3,}`).ReplaceAllString(result, "\n\n")
 
@@ -74,7 +74,7 @@ func (t *QADataTransformer) CleanHTMLContent(htmlText string) string {
 func (t *QADataTransformer) stripHTMLSimple(htmlText string) string {
 	re := regexp.MustCompile(`<[^>]+>`)
 	text := re.ReplaceAllString(htmlText, " ")
-	text = html.UnescapeString(text)
+	text = stdhtml.UnescapeString(text)
 	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
 	return strings.TrimSpace(text)
 }
