@@ -1,7 +1,7 @@
 <template>
     <div class="aside_box">
         <div class="logo_box" @click="router.push('/platform/knowledge-bases')" style="cursor: pointer;">
-            <img class="logo" src="@/assets/img/weknora.png" alt="">
+            <img class="logo" src="@/assets/img/logo.png" alt="">
         </div>
         
         <!-- 上半部分：知识库和对话 -->
