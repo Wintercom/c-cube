@@ -22,6 +22,17 @@
             <p>暂无导入任务</p>
           </div>
         </template>
+        <template #operation="{ row }">
+          <t-button
+            v-if="row.status === 'pending' || row.status === 'processing'"
+            theme="danger"
+            variant="text"
+            size="small"
+            @click="handleCancel(row.id)"
+          >
+            取消
+          </t-button>
+        </template>
       </t-table>
     </div>
   </t-dialog>
@@ -135,18 +146,7 @@ const columns = [
   {
     colKey: 'operation',
     title: '操作',
-    width: 80,
-    cell: (h: any, { row }: any) => {
-      const canCancel = row.status === 'pending' || row.status === 'processing';
-      if (!canCancel) return null;
-      
-      return h('t-button', {
-        theme: 'danger',
-        variant: 'text',
-        size: 'small',
-        onClick: () => handleCancel(row.id)
-      }, '取消');
-    }
+    width: 80
   }
 ];
 

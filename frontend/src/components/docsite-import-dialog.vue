@@ -2,7 +2,6 @@
 import { ref, computed } from 'vue';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { createImportTask } from '@/api/knowledge-base';
-import { useRouter } from 'vue-router';
 
 const props = defineProps<{
   visible: boolean;
@@ -14,7 +13,6 @@ const emit = defineEmits<{
   (e: 'success'): void;
 }>();
 
-const router = useRouter();
 const baseUrl = ref('');
 const maxPages = ref(100);
 const isImporting = ref(false);
@@ -57,15 +55,9 @@ const handleImport = async () => {
     if (result) {
       const data = result as any;
       if (data.success && data.data) {
-        const taskId = data.data.id;
         MessagePlugin.success('导入任务已创建,正在后台处理...');
         handleClose();
-        
-        // 跳转到任务管理页面
-        router.push({
-          name: 'ImportTasks',
-          params: { kbId: props.kbId }
-        });
+        emit('success');
       } else {
         MessagePlugin.error(data.message || '创建导入任务失败');
       }
