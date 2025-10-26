@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router';
 import EmptyKnowledge from '@/components/empty-knowledge.vue';
 import DocsiteImportDialog from '@/components/docsite-import-dialog.vue';
 import CreateKnowledgeDialog from '@/components/create-knowledge-dialog.vue';
+import ImportTaskDialog from '@/components/import-task-dialog.vue';
 import { getSessionsList, createSessions, generateSessionsTitle } from "@/api/chat/index";
 import { useMenuStore } from '@/stores/menu';
 import { MessagePlugin } from 'tdesign-vue-next';
@@ -28,6 +29,7 @@ let knowledgeIndex = ref(-1)
 let knowledgeScroll = ref()
 let showDocsiteDialog = ref(false)
 let showCreateDialog = ref(false)
+let showImportTaskDialog = ref(false)
 let page = 1;
 let pageSize = 35;
 const getPageSize = () => {
@@ -242,6 +244,10 @@ const openCreateDialog = () => {
 const handleCreateSuccess = () => {
   handleRefresh();
 };
+
+const openImportTaskDialog = () => {
+  showImportTaskDialog.value = true;
+};
 </script>
 
 <template>
@@ -255,6 +261,17 @@ const handleCreateSuccess = () => {
       title="从文档站导入"
     >
       <t-icon name="link" size="20px" />
+    </t-button>
+    <t-button
+      class="import-task-fab"
+      theme="default"
+      shape="circle"
+      size="large"
+      @click="openImportTaskDialog"
+      title="查看导入任务"
+      style="bottom: 90px"
+    >
+      <t-icon name="queue" size="20px" />
     </t-button>
     <div class="knowledge-card-wrap" ref="knowledgeScroll" @scroll="handleScroll">
       <div class="knowledge-card create-card" @click.stop="openCreateDialog">
@@ -327,11 +344,16 @@ const handleCreateSuccess = () => {
       :kb-id="kbId"
       @success="handleDocsiteImportSuccess"
     />
+    <ImportTaskDialog 
+      v-model="showImportTaskDialog"
+      :knowledge-base-id="kbId"
+    />
   </div>
   <EmptyKnowledge v-show="!cardList.length" :kb-id="kbId" @refresh="handleRefresh"></EmptyKnowledge>
 </template>
 <style>
-.docsite-import-fab {
+.docsite-import-fab,
+.import-task-fab {
   position: absolute !important;
   bottom: 100px;
   right: 60px;
@@ -339,7 +361,12 @@ const handleCreateSuccess = () => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.docsite-import-fab:hover {
+.import-task-fab {
+  bottom: 180px !important;
+}
+
+.docsite-import-fab:hover,
+.import-task-fab:hover {
   transform: scale(1.05);
   transition: transform 0.2s;
 }
