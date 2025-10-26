@@ -31,10 +31,16 @@ type QADataTransformer struct {
 }
 
 type Stats struct {
-	Total   int
-	Success int
-	Failed  int
-	Skipped int
+	Total      int
+	Success    int
+	Failed     int
+	Skipped    int
+	LowQuality int
+}
+
+type QualityScore struct {
+	Score   int
+	Reasons []string
 }
 
 func NewQADataTransformer() *QADataTransformer {
@@ -129,6 +135,92 @@ func (t *QADataTransformer) ExtractMetadata(qa HistoricalQA) map[string]interfac
 	}
 }
 
+func (t *QADataTransformer) CalculateQualityScore(qa HistoricalQA) QualityScore {
+	score := 50
+	var reasons []string
+
+	replyCount := len(qa.Replies)
+	if replyCount < 2 {
+		score -= 30
+		reasons = append(reasons, "对话轮次过少")
+	} else if replyCount >= 3 {
+		score += 10
+	}
+
+	agentReplies := []string{}
+	for _, reply := range qa.Replies {
+		if reply.Owner == "agent" {
+			agentReplies = append(agentReplies, t.CleanHTMLContent(reply.Content))
+		}
+	}
+
+	if len(agentReplies) == 0 {
+		score -= 40
+		reasons = append(reasons, "缺少客服回复")
+	} else {
+		avgLength := 0
+		for _, content := range agentReplies {
+			avgLength += len([]rune(content))
+		}
+		avgLength /= len(agentReplies)
+
+		if avgLength < 10 {
+			score -= 25
+			reasons = append(reasons, "客服回复过于简短")
+		} else if avgLength > 50 {
+			score += 15
+		}
+
+		techKeywords := []string{
+			"API", "SDK", "token", "配置", "参数", "代码",
+			"文档", "接口", "错误", "报错", "日志", "http",
+			"bucket", "空间", "域名", "证书", "转码",
+		}
+		hasTechContent := false
+		for _, reply := range agentReplies {
+			for _, keyword := range techKeywords {
+				if strings.Contains(reply, keyword) {
+					hasTechContent = true
+					break
+				}
+			}
+		}
+		if hasTechContent {
+			score += 20
+		} else {
+			score -= 10
+			reasons = append(reasons, "缺少技术内容")
+		}
+	}
+
+	lowValuePatterns := []string{
+		"您再看下", "已处理", "手动介入", "已经帮您",
+		"稍等", "正在处理", "麻烦您提供", "联系客服",
+	}
+	hasLowValueReply := false
+	for _, reply := range qa.Replies {
+		content := t.CleanHTMLContent(reply.Content)
+		for _, pattern := range lowValuePatterns {
+			if strings.Contains(content, pattern) && len([]rune(content)) < 20 {
+				hasLowValueReply = true
+				break
+			}
+		}
+	}
+	if hasLowValueReply {
+		score -= 20
+		reasons = append(reasons, "包含低价值模板回复")
+	}
+
+	title := t.CleanHTMLContent(qa.Title)
+	if len([]rune(title)) < 5 {
+		score -= 10
+		reasons = append(reasons, "标题过短")
+	}
+
+	return QualityScore{Score: score, Reasons: reasons}
+}
+
 func (t *QADataTransformer) ValidateQA(qa HistoricalQA) bool {
 	if qa.Title == "" && qa.Description == "" {
 		return false
@@ -147,7 +239,21 @@ func (t *QADataTransformer) ValidateQA(qa HistoricalQA) bool {
 		}
 	}
 
-	return hasValidContent
+	if !hasValidContent {
+		return false
+	}
+
+	qualityScore := t.CalculateQualityScore(qa)
+	threshold := 40
+
+	if qualityScore.Score < threshold {
+		t.stats.LowQuality++
+		fmt.Printf("  QA ID %d 质量分数 %d 低于阈值 %d, 原因: %v\n",
+			qa.ID, qualityScore.Score, threshold, qualityScore.Reasons)
+		return false
+	}
+
+	return true
 }
 
 func (t *QADataTransformer) TransformSingleQA(qa HistoricalQA) (*common.TransformedQA, error) {
@@ -197,6 +303,7 @@ func (t *QADataTransformer) PrintStats() {
 	fmt.Printf("  总计: %d 条\n", t.stats.Total)
 	fmt.Printf("  成功: %d 条\n", t.stats.Success)
 	fmt.Printf("  跳过: %d 条\n", t.stats.Skipped)
+	fmt.Printf("  低质量过滤: %d 条\n", t.stats.LowQuality)
 	fmt.Printf("  失败: %d 条\n", t.stats.Failed)
 	fmt.Println(strings.Repeat("=", 60))
 }
