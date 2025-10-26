@@ -112,7 +112,7 @@ docker-run:
 
 # 使用新脚本启动所有服务
 start-all:
-	./scripts/start_all.sh
+	./scripts/start_all.sh --no-pull
 
 # 使用新脚本仅启动Ollama服务
 start-ollama:
