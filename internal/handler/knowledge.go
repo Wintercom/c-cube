@@ -543,7 +543,12 @@ func (h *KnowledgeHandler) CreateImportTask(c *gin.Context) {
 	}
 
 	// Create a context with tenant information for the background task
-	tenantInfo, _ := c.Get(types.TenantInfoContextKey.String())
+	tenantInfo, exists := c.Get(types.TenantInfoContextKey.String())
+	if !exists {
+		logger.Error(ctx, "Tenant info not found in context")
+		c.Error(errors.NewInternalServerError("Failed to get tenant info"))
+		return
+	}
 	taskCtx := context.WithValue(
 		context.WithValue(context.Background(), types.TenantIDContextKey, tenantID),
 		types.TenantInfoContextKey, tenantInfo,
