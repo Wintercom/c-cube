@@ -267,10 +267,12 @@ const handleClose = () => {
     margin-bottom: 8px;
     
     .file-select-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      
+
+      :deep(.t-button__text) {
+        display: inline-flex;
+        align-items: center;
+      }
+
       :deep(.t-icon) {
         display: inline-flex;
         align-items: center;
