@@ -1,0 +1,28 @@
+# WeKnora 文档站 URL 列表示例
+# 
+# 使用方法:
+# docsite-importer --api-url http://localhost:8080 --token YOUR_TOKEN --kb-id kb-xxxxx --url-file example_urls.txt
+#
+# 格式说明:
+# - 每行一个 URL
+# - 以 # 开头的行为注释
+# - 空行会被忽略
+
+# 入门指南
+https://docs.example.com/guide/introduction
+https://docs.example.com/guide/getting-started
+https://docs.example.com/guide/installation
+
+# API 参考
+https://docs.example.com/api/authentication
+https://docs.example.com/api/knowledge-bases
+https://docs.example.com/api/knowledge
+https://docs.example.com/api/chunks
+
+# 最佳实践
+https://docs.example.com/best-practices/document-preparation
+https://docs.example.com/best-practices/chunking-strategies
+https://docs.example.com/best-practices/retrieval-optimization
+
+# FAQ
+https://docs.example.com/faq
