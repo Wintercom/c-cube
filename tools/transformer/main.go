@@ -137,14 +137,6 @@ func (t *QADataTransformer) CalculateQualityScore(qa HistoricalQA) QualityScore 
 	score := 50
 	var reasons []string
 
-	replyCount := len(qa.Replies)
-	if replyCount < 2 {
-		score -= 30
-		reasons = append(reasons, "对话轮次过少")
-	} else if replyCount >= 3 {
-		score += 10
-	}
-
 	agentReplies := []string{}
 	for _, reply := range qa.Replies {
 		if reply.Owner == "agent" {
@@ -155,40 +147,52 @@ func (t *QADataTransformer) CalculateQualityScore(qa HistoricalQA) QualityScore 
 	if len(agentReplies) == 0 {
 		score -= 40
 		reasons = append(reasons, "缺少客服回复")
-	} else {
-		avgLength := 0
-		for _, content := range agentReplies {
-			avgLength += len([]rune(content))
-		}
-		avgLength /= len(agentReplies)
+		return QualityScore{Score: score, Reasons: reasons}
+	}
 
-		if avgLength < 10 {
-			score -= 25
-			reasons = append(reasons, "客服回复过于简短")
-		} else if avgLength > 50 {
-			score += 15
-		}
+	replyCount := len(qa.Replies)
+	if replyCount < 2 {
+		score -= 30
+		reasons = append(reasons, "对话轮次过少")
+	} else if replyCount >= 3 {
+		score += 10
+	}
 
-		techKeywords := []string{
-			"API", "SDK", "token", "配置", "参数", "代码",
-			"文档", "接口", "错误", "报错", "日志", "http",
-			"bucket", "空间", "域名", "证书", "转码",
-		}
-		hasTechContent := false
-		for _, reply := range agentReplies {
-			for _, keyword := range techKeywords {
-				if strings.Contains(reply, keyword) {
-					hasTechContent = true
-					break
-				}
+	avgLength := 0
+	for _, content := range agentReplies {
+		avgLength += len([]rune(content))
+	}
+	avgLength /= len(agentReplies)
+
+	if avgLength < 10 {
+		score -= 25
+		reasons = append(reasons, "客服回复过于简短")
+	} else if avgLength > 50 {
+		score += 15
+	}
+
+	techKeywords := []string{
+		"API", "SDK", "token", "配置", "参数", "代码",
+		"文档", "接口", "错误", "报错", "日志", "http",
+		"bucket", "空间", "域名", "证书", "转码",
+	}
+	hasTechContent := false
+	for _, reply := range agentReplies {
+		for _, keyword := range techKeywords {
+			if strings.Contains(reply, keyword) {
+				hasTechContent = true
+				break
 			}
 		}
 		if hasTechContent {
-			score += 20
-		} else {
-			score -= 10
-			reasons = append(reasons, "缺少技术内容")
+			break
 		}
+	}
+	if hasTechContent {
+		score += 20
+	} else {
+		score -= 10
+		reasons = append(reasons, "缺少技术内容")
 	}
 
 	lowValuePatterns := []string{
@@ -204,8 +208,11 @@ func (t *QADataTransformer) CalculateQualityScore(qa HistoricalQA) QualityScore 
 				break
 			}
 		}
+		if hasLowValueReply {
+			break
+		}
 	}
-	if hasLowValueReply {
+	if hasLowValueReply && !hasTechContent {
 		score -= 20
 		reasons = append(reasons, "包含低价值模板回复")
 	}
