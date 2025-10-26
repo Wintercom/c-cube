@@ -86,4 +86,5 @@ message Chunk {
 message ReadResponse {
   repeated Chunk chunks = 1; // 文档分块
   string error = 2;          // 错误信息
+  string title = 3;          // 文档标题 (仅从URL读取时返回)
 } 

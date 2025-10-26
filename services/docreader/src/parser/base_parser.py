@@ -58,6 +58,7 @@ class ParseResult:
 
     text: str  # Extracted text content
     chunks: Optional[List[Chunk]] = None  # Chunk results
+    title: Optional[str] = None  # Document title (for URLs)
 
 
 class BaseParser(ABC):
@@ -672,7 +673,9 @@ class BaseParser(ABC):
                     f"Skipping image processing for unsupported file type: {file_ext}"
                 )
 
-        return ParseResult(text=text, chunks=chunks)
+        # Include title if available (for WebParser)
+        title = getattr(self, 'extracted_title', None)
+        return ParseResult(text=text, chunks=chunks, title=title)
 
     def _split_into_units(self, text: str) -> List[str]:
         """
