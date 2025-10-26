@@ -641,3 +641,73 @@ func (h *KnowledgeHandler) ListImportTasks(c *gin.Context) {
 		"page_size": result.PageSize,
 	})
 }
+
+// CreateKnowledgeFromPassage handles requests to create knowledge from text passages
+func (h *KnowledgeHandler) CreateKnowledgeFromPassage(c *gin.Context) {
+	ctx := c.Request.Context()
+	logger.Info(ctx, "Start creating knowledge from passage")
+
+	// Validate access to the knowledge base
+	_, kbID, err := h.validateKnowledgeBaseAccess(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		Passages    []string               `json:"passages" binding:"required"`
+		Title       string                 `json:"title"`
+		Description string                 `json:"description"`
+		Metadata    map[string]interface{} `json:"metadata"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		logger.Error(ctx, "Failed to parse passage request", err)
+		c.Error(errors.NewBadRequestError(err.Error()))
+		return
+	}
+
+	if len(req.Passages) == 0 {
+		logger.Error(ctx, "Passages array is empty")
+		c.Error(errors.NewBadRequestError("Passages cannot be empty"))
+		return
+	}
+
+	logger.Infof(ctx, "Creating knowledge from passage, knowledge base ID: %s, passages count: %d",
+		kbID, len(req.Passages))
+
+	// Create knowledge entry from passages
+	knowledge, err := h.kgService.CreateKnowledgeFromPassage(ctx, kbID, req.Passages)
+	if err != nil {
+		logger.ErrorWithFields(ctx, err, nil)
+		c.Error(errors.NewInternalServerError(err.Error()))
+		return
+	}
+
+	// Update title, description, and metadata if provided
+	if req.Title != "" || req.Description != "" || req.Metadata != nil {
+		if req.Title != "" {
+			knowledge.Title = req.Title
+		}
+		if req.Description != "" {
+			knowledge.Description = req.Description
+		}
+		if req.Metadata != nil {
+			metadataJSON, _ := json.Marshal(req.Metadata)
+			knowledge.Metadata = metadataJSON
+		}
+
+		if err := h.kgService.UpdateKnowledge(ctx, knowledge); err != nil {
+			logger.Warnf(ctx, "Failed to update knowledge metadata: %v", err)
+		}
+	}
+
+	logger.Infof(ctx, "Knowledge created successfully from passage, ID: %s", knowledge.ID)
+	c.JSON(http.StatusCreated, gin.H{
+		"success":    true,
+		"data":       knowledge,
+		"id":         knowledge.ID,
+		"created_at": knowledge.CreatedAt,
+		"message":    "Knowledge passage created successfully",
+	})
+}
