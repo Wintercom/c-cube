@@ -118,8 +118,6 @@ func (t *QADataTransformer) BuildConversationalPassage(qa HistoricalQA) string {
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString(strings.Repeat("=", 60))
-
 	return sb.String()
 }
 
@@ -133,10 +131,7 @@ func (t *QADataTransformer) ExtractMetadata(qa HistoricalQA) map[string]interfac
 	}
 }
 
-func (t *QADataTransformer) CalculateQualityScore(qa HistoricalQA) QualityScore {
-	score := 50
-	var reasons []string
-
+func (t *QADataTransformer) CheckFilterQA(qa HistoricalQA) bool {
 	agentReplies := []string{}
 	for _, reply := range qa.Replies {
 		if reply.Owner == "agent" {
@@ -145,30 +140,23 @@ func (t *QADataTransformer) CalculateQualityScore(qa HistoricalQA) QualityScore 
 	}
 
 	if len(agentReplies) == 0 {
-		score -= 40
-		reasons = append(reasons, "缺少客服回复")
-		return QualityScore{Score: score, Reasons: reasons}
+		return true
 	}
 
-	replyCount := len(qa.Replies)
-	if replyCount < 2 {
-		score -= 30
-		reasons = append(reasons, "对话轮次过少")
-	} else if replyCount >= 3 {
-		score += 10
+	// 检查客服回复轮次
+	if len(agentReplies)>2{
+		return false
 	}
 
-	avgLength := 0
+	var maxLen int
 	for _, content := range agentReplies {
-		avgLength += len([]rune(content))
+		cl:= len([]rune(content))
+		if cl>maxLen{
+			maxLen=cl
+		}
 	}
-	avgLength /= len(agentReplies)
-
-	if avgLength < 10 {
-		score -= 25
-		reasons = append(reasons, "客服回复过于简短")
-	} else if avgLength > 50 {
-		score += 15
+	if maxLen > 10{
+		return false
 	}
 
 	techKeywords := []string{
@@ -189,10 +177,7 @@ func (t *QADataTransformer) CalculateQualityScore(qa HistoricalQA) QualityScore 
 		}
 	}
 	if hasTechContent {
-		score += 20
-	} else {
-		score -= 10
-		reasons = append(reasons, "缺少技术内容")
+		return false
 	}
 
 	lowValuePatterns := []string{
@@ -212,18 +197,11 @@ func (t *QADataTransformer) CalculateQualityScore(qa HistoricalQA) QualityScore 
 			break
 		}
 	}
-	if hasLowValueReply && !hasTechContent {
-		score -= 20
-		reasons = append(reasons, "包含低价值模板回复")
+	if hasLowValueReply  {
+		return true
 	}
 
-	title := t.CleanHTMLContent(qa.Title)
-	if len([]rune(title)) < 5 {
-		score -= 10
-		reasons = append(reasons, "标题过短")
-	}
-
-	return QualityScore{Score: score, Reasons: reasons}
+	return false
 }
 
 func (t *QADataTransformer) ValidateQA(qa HistoricalQA) bool {
@@ -248,13 +226,12 @@ func (t *QADataTransformer) ValidateQA(qa HistoricalQA) bool {
 		return false
 	}
 
-	qualityScore := t.CalculateQualityScore(qa)
-	threshold := 40
 
-	if qualityScore.Score < threshold {
+
+	if t.CheckFilterQA(qa) {
 		t.stats.LowQuality++
-		fmt.Printf("  QA ID %d 质量分数 %d 低于阈值 %d, 原因: %v\n",
-			qa.ID, qualityScore.Score, threshold, qualityScore.Reasons)
+		fmt.Printf("  QA ID %d 因为客服回复质量太差而被过滤掉\n",
+			qa.ID)
 		return false
 	}
 
