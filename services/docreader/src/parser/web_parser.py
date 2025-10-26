@@ -113,6 +113,7 @@ class WebParser(BaseParser):
             logger.info(f"Web page title: {title}")
             # Store the extracted title for later use
             self.extracted_title = title.strip() if title else ""
+            logger.info(f"DEBUG: Stored extracted_title='{self.extracted_title}'")
             text = "\n".join(
                 (line.strip() for line in text.splitlines() if line.strip())
             )

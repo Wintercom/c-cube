@@ -675,6 +675,7 @@ class BaseParser(ABC):
 
         # Include title if available (for WebParser)
         title = getattr(self, 'extracted_title', None)
+        logger.info(f"DEBUG: Creating ParseResult with title='{title}'")
         return ParseResult(text=text, chunks=chunks, title=title)
 
     def _split_into_units(self, text: str) -> List[str]:

@@ -267,9 +267,11 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                     f"Successfully parsed URL {request.url}, returning {len(result.chunks)} chunks, title: {result.title}"
                 )
                 
+                response_title = result.title if result.title else ""
+                logger.info(f"DEBUG: Building ReadResponse with title='{response_title}'")
                 response = ReadResponse(
                     chunks=[self._convert_chunk_to_proto(chunk) for chunk in result.chunks],
-                    title=result.title if result.title else ""
+                    title=response_title
                 )
                 logger.info(f"Response size: {response.ByteSize()} bytes")
                 return response
