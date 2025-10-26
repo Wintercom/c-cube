@@ -122,6 +122,9 @@ func (s *crawlerService) CrawlWebsite(ctx context.Context, baseURL string, maxPa
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
+		if strings.Contains(err.Error(), "already visited") {
+			return
+		}
 		logger.Warnf(ctx, "Failed to crawl %s: %v", r.Request.URL.String(), err)
 		urlsMutex.Lock()
 		result.Failed = append(result.Failed, r.Request.URL.String())
