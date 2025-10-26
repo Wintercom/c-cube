@@ -36,3 +36,10 @@ data/files/
 ### macOS
 # General
 .DS_Store
+
+# Go binaries and build artifacts
+tools/docsite-importer/docsite-importer
+tools/docsite-importer/*.exe
+tools/docsite-importer/*.dll
+tools/docsite-importer/*.so
+tools/docsite-importer/*.dylib
