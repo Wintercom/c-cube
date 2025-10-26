@@ -396,7 +396,8 @@ func (s *knowledgeService) CreateKnowledgeFromPassage(ctx context.Context,
 
 	// Process passages asynchronously
 	logger.Info(ctx, "Starting asynchronous passage processing")
-	go s.processDocumentFromPassage(ctx, kb, knowledge, safePassages)
+	newCtx := logger.CloneContext(ctx)
+	go s.processDocumentFromPassage(newCtx, kb, knowledge, safePassages)
 
 	logger.Infof(ctx, "Knowledge from passage created successfully, ID: %s", knowledge.ID)
 	return knowledge, nil
