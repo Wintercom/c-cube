@@ -834,13 +834,18 @@ func (s *knowledgeService) processDocumentFromURL(ctx context.Context,
 	}
 
 	// Update knowledge title if extracted from HTML
+	logger.GetLogger(ctx).Infof("DEBUG: resp.GetTitle()='%s', knowledge.Title='%s'", resp.GetTitle(), knowledge.Title)
 	if resp.GetTitle() != "" && knowledge.Title == "" {
 		knowledge.Title = resp.GetTitle()
 		logger.GetLogger(ctx).Infof("Extracted title from URL: %s", knowledge.Title)
 		// Update database immediately
 		if err := s.repo.UpdateKnowledge(ctx, knowledge); err != nil {
 			logger.GetLogger(ctx).WithField("error", err).Errorf("Failed to update knowledge title")
+		} else {
+			logger.GetLogger(ctx).Infof("DEBUG: Successfully updated knowledge title in database")
 		}
+	} else {
+		logger.GetLogger(ctx).Infof("DEBUG: Skipping title update - condition not met")
 	}
 
 	// Process and store chunks
