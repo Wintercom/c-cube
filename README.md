@@ -66,3 +66,8 @@ make start-all
 ```bash
 make stop-all
 ```
+
+
+## Demo 视频
+
+https://winterbd251010.qbox.net/c-cube-demo.mov
