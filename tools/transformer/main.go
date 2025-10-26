@@ -43,10 +43,38 @@ type QualityScore struct {
 	Reasons []string
 }
 
+type KeywordInfo struct {
+	Keyword   string `json:"keyword"`
+	Frequency int    `json:"frequency"`
+	Category  string `json:"category"`
+}
+
 func NewQADataTransformer() *QADataTransformer {
 	return &QADataTransformer{
 		stats: Stats{},
 	}
+}
+
+func loadAdditionalKeywords(filePath string) map[string]bool {
+	keywords := make(map[string]bool)
+	
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return keywords
+	}
+	
+	var keywordList []KeywordInfo
+	if err := json.Unmarshal(data, &keywordList); err != nil {
+		return keywords
+	}
+	
+	for _, kw := range keywordList {
+		if kw.Keyword != "" {
+			keywords[kw.Keyword] = true
+		}
+	}
+	
+	return keywords
 }
 
 func (t *QADataTransformer) CleanHTMLContent(htmlText string) string {
@@ -163,6 +191,11 @@ func (t *QADataTransformer) CheckFilterQA(qa HistoricalQA) bool {
 		"API": true, "SDK": true, "token": true, "配置": true, "参数": true, "代码": true,
 		"文档": true, "接口": true, "错误": true, "报错": true, "日志": true, "http": true,
 		"bucket": true, "空间": true, "域名": true, "证书": true, "转码": true,
+	}
+	
+	additionalKeywords := loadAdditionalKeywords("../keyword_extractor/keywords_output.json")
+	for keyword := range additionalKeywords {
+		techKeywords[keyword] = true
 	}
 	hasTechContent := false
 	for _, reply := range agentReplies {
