@@ -54,6 +54,10 @@ export function getKnowledgeDetailsCon(id: string, page: number) {
   return get(`/api/v1/chunks/${id}?page=${page}&page_size=25`);
 }
 
+export function createKnowledgeFromURL(kbId: string, data: { url: string; enable_multimodel?: boolean }) {
+  return post(`/api/v1/knowledge-bases/${kbId}/knowledge/url`, data);
+}
+
 export function importDocsiteKnowledge(kbId: string, data: { base_url: string; max_pages?: number; enable_multimodel?: boolean }) {
   return post(`/api/v1/knowledge-bases/${kbId}/knowledge/docsite`, data);
 }
