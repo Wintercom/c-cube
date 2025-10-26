@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/Wintercom/c-cube/tools/common"
 )
 
 type PassageRequest struct {
@@ -52,7 +54,7 @@ func NewQABatchImporter(apiURL, token, kbID string, batchSize int) *QABatchImpor
 	}
 }
 
-func (imp *QABatchImporter) ImportSinglePassage(data TransformedQA) error {
+func (imp *QABatchImporter) ImportSinglePassage(data common.TransformedQA) error {
 	url := fmt.Sprintf("%s/api/v1/knowledge-bases/%s/knowledge/passage",
 		imp.apiURL, imp.knowledgeBaseID)
 
@@ -94,7 +96,7 @@ func (imp *QABatchImporter) ImportSinglePassage(data TransformedQA) error {
 	return fmt.Errorf("API 错误 %d: %s", resp.StatusCode, string(body))
 }
 
-func (imp *QABatchImporter) ImportBatch(qaList []TransformedQA, startIndex int) {
+func (imp *QABatchImporter) ImportBatch(qaList []common.TransformedQA, startIndex int) {
 	imp.stats.Total = len(qaList)
 
 	fmt.Printf("\n开始批量导入 (从第 %d 条开始)...\n", startIndex+1)
@@ -253,7 +255,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	var qaList []TransformedQA
+	var qaList []common.TransformedQA
 	if err := json.Unmarshal(data, &qaList); err != nil {
 		fmt.Printf("❌ 错误: JSON 格式无效 - %v\n", err)
 		os.Exit(1)

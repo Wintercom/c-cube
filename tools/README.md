@@ -50,10 +50,10 @@ cd tools
 go mod download
 
 # 编译转换工具
-go build -o transformer transformer.go
+cd transformer && go build -o transformer
 
 # 编译导入工具
-go build -o importer importer.go
+cd ../importer && go build -o importer
 ```
 
 ### 方式二：直接运行
@@ -62,10 +62,10 @@ go build -o importer importer.go
 cd tools
 
 # 运行转换工具
-go run transformer.go <输入文件> <输出文件>
+cd transformer && go run main.go <输入文件> <输出文件>
 
 # 运行导入工具
-go run importer.go [选项] <转换后的文件>
+cd importer && go run main.go [选项] <转换后的文件>
 ```
 
 ---
@@ -103,10 +103,10 @@ go run importer.go [选项] <转换后的文件>
 
 ```bash
 # 使用编译后的可执行文件
-./transformer raw_qa_data.json transformed_qa_data.json
+./transformer/transformer raw_qa_data.json transformed_qa_data.json
 
 # 或直接运行源码
-go run transformer.go raw_qa_data.json transformed_qa_data.json
+cd transformer && go run main.go ../raw_qa_data.json ../transformed_qa_data.json
 ```
 
 **输出示例：**
@@ -136,7 +136,7 @@ go run transformer.go raw_qa_data.json transformed_qa_data.json
 
 ```bash
 # 使用编译后的可执行文件
-./importer \
+./importer/importer \
   --api-url http://localhost:8080 \
   --token YOUR_API_TOKEN \
   --kb-id YOUR_KNOWLEDGE_BASE_ID \
@@ -144,12 +144,12 @@ go run transformer.go raw_qa_data.json transformed_qa_data.json
   transformed_qa_data.json
 
 # 或直接运行源码
-go run importer.go \
+cd importer && go run main.go \
   --api-url http://localhost:8080 \
   --token YOUR_API_TOKEN \
   --kb-id YOUR_KNOWLEDGE_BASE_ID \
   --batch-size 10 \
-  transformed_qa_data.json
+  ../transformed_qa_data.json
 ```
 
 **参数说明：**
@@ -219,7 +219,7 @@ cat failed_imports.json
 修复数据后，可以从失败位置继续导入：
 
 ```bash
-./importer \
+./importer/importer \
   --api-url http://localhost:8080 \
   --token YOUR_API_TOKEN \
   --kb-id YOUR_KNOWLEDGE_BASE_ID \
@@ -275,23 +275,23 @@ cat failed_imports.json
 cd tools
 
 # 编译转换工具
-go build -o transformer transformer.go
+cd transformer && go build -o transformer
 
 # 编译导入工具
-go build -o importer importer.go
+cd ../importer && go build -o importer
 
 # 编译为跨平台可执行文件
 # Windows
-GOOS=windows GOARCH=amd64 go build -o transformer.exe transformer.go
-GOOS=windows GOARCH=amd64 go build -o importer.exe importer.go
+cd transformer && GOOS=windows GOARCH=amd64 go build -o transformer.exe
+cd ../importer && GOOS=windows GOARCH=amd64 go build -o importer.exe
 
 # Linux
-GOOS=linux GOARCH=amd64 go build -o transformer transformer.go
-GOOS=linux GOARCH=amd64 go build -o importer importer.go
+cd transformer && GOOS=linux GOARCH=amd64 go build -o transformer
+cd ../importer && GOOS=linux GOARCH=amd64 go build -o importer
 
 # macOS
-GOOS=darwin GOARCH=amd64 go build -o transformer transformer.go
-GOOS=darwin GOARCH=amd64 go build -o importer importer.go
+cd transformer && GOOS=darwin GOARCH=amd64 go build -o transformer
+cd ../importer && GOOS=darwin GOARCH=amd64 go build -o importer
 ```
 
 ### Q2: Go 版本和 Python 版本有什么区别？
@@ -330,7 +330,7 @@ Go 版本使用流式处理，可以高效处理大文件。如果遇到内存�
 
 ```bash
 # 转换一个小文件查看效果
-./transformer sample.json output.json
+./transformer/transformer sample.json output.json
 
 # 查看转换结果
 cat output.json | jq '.[] | .passage' | head -20
@@ -347,7 +347,7 @@ cat output.json | jq '.[] | .passage' | head -20
 
 ### Q7: 如何自定义转换逻辑？
 
-修改 `transformer.go` 中的以下方法：
+修改 `transformer/main.go` 中的以下方法：
 - `CleanHTMLContent()` - HTML 清洗逻辑
 - `BuildConversationalPassage()` - 对话格式化
 - `ExtractMetadata()` - 元数据提取
@@ -357,12 +357,12 @@ cat output.json | jq '.[] | .passage' | head -20
 
 ### Q8: 能否并发导入提升速度？
 
-可以！修改 `importer.go` 的 `ImportBatch()` 方法，使用 goroutine 和 channel 实现并发导入。示例：
+可以！修改 `importer/main.go` 的 `ImportBatch()` 方法，使用 goroutine 和 channel 实现并发导入。示例：
 
 ```go
 // 使用 worker pool 模式
 workerCount := 5
-jobs := make(chan TransformedQA, len(qaList))
+jobs := make(chan common.TransformedQA, len(qaList))
 results := make(chan error, len(qaList))
 
 // 启动 workers

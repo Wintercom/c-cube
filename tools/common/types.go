@@ -1,4 +1,4 @@
-package main
+package common
 
 type TransformedQA struct {
 	Title       string                 `json:"title"`

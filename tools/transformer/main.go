@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wintercom/c-cube/tools/common"
 	"golang.org/x/net/html"
 )
 
@@ -150,7 +151,7 @@ func (t *QADataTransformer) ValidateQA(qa HistoricalQA) bool {
 	return hasValidContent
 }
 
-func (t *QADataTransformer) TransformSingleQA(qa HistoricalQA) (*TransformedQA, error) {
+func (t *QADataTransformer) TransformSingleQA(qa HistoricalQA) (*common.TransformedQA, error) {
 	if !t.ValidateQA(qa) {
 		return nil, fmt.Errorf("问答数据无效或内容为空")
 	}
@@ -160,7 +161,7 @@ func (t *QADataTransformer) TransformSingleQA(qa HistoricalQA) (*TransformedQA, 
 	title := t.CleanHTMLContent(qa.Title)
 	description := t.CleanHTMLContent(qa.Description)
 
-	return &TransformedQA{
+	return &common.TransformedQA{
 		Title:       title,
 		Description: description,
 		Passage:     passage,
@@ -168,9 +169,9 @@ func (t *QADataTransformer) TransformSingleQA(qa HistoricalQA) (*TransformedQA, 
 	}, nil
 }
 
-func (t *QADataTransformer) TransformBatch(qaList []HistoricalQA) ([]TransformedQA, error) {
+func (t *QADataTransformer) TransformBatch(qaList []HistoricalQA) ([]common.TransformedQA, error) {
 	t.stats.Total = len(qaList)
-	var transformedList []TransformedQA
+	var transformedList []common.TransformedQA
 
 	for i, qa := range qaList {
 		transformed, err := t.TransformSingleQA(qa)
