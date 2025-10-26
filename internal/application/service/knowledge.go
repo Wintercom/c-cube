@@ -811,6 +811,12 @@ func (s *knowledgeService) processDocumentFromURL(ctx context.Context,
 		return
 	}
 
+	// Update knowledge title if extracted from HTML
+	if resp.GetTitle() != "" && knowledge.Title == "" {
+		knowledge.Title = resp.GetTitle()
+		logger.GetLogger(ctx).Infof("Extracted title from URL: %s", knowledge.Title)
+	}
+
 	// Process and store chunks
 	s.processChunks(ctx, kb, knowledge, resp.Chunks)
 }
