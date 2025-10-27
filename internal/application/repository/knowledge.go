@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -201,4 +202,21 @@ func (r *knowledgeRepository) AminusB(
 func (r *knowledgeRepository) UpdateKnowledgeColumn(ctx context.Context, id string, column string, value interface{}) error {
 	err := r.db.WithContext(ctx).Model(&types.Knowledge{}).Where("id = ?", id).Update(column, value).Error
 	return err
+}
+
+// FindStuckKnowledge finds knowledge that has been stuck in pending or processing state
+func (r *knowledgeRepository) FindStuckKnowledge(ctx context.Context, pendingMinutes int, processingMinutes int) ([]*types.Knowledge, error) {
+	var knowledges []*types.Knowledge
+	
+	now := time.Now()
+	pendingThreshold := now.Add(-time.Duration(pendingMinutes) * time.Minute)
+	processingThreshold := now.Add(-time.Duration(processingMinutes) * time.Minute)
+	
+	err := r.db.WithContext(ctx).
+		Where("(parse_status = ? AND updated_at < ?) OR (parse_status = ? AND updated_at < ?)",
+			"pending", pendingThreshold,
+			"processing", processingThreshold).
+		Find(&knowledges).Error
+	
+	return knowledges, err
 }
