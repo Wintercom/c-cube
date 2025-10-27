@@ -1825,7 +1825,7 @@ func IsImageType(fileType string) bool {
 	}
 }
 
-// StartPendingTaskScanner starts a background scanner that periodically checks for stuck pending/processing tasks
+// StartPendingTaskScanner starts a background scanner that periodically checks for pending tasks
 func (s *knowledgeService) StartPendingTaskScanner(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Minute) // Scan every 5 minutes
 	
@@ -1833,12 +1833,12 @@ func (s *knowledgeService) StartPendingTaskScanner(ctx context.Context) {
 		defer ticker.Stop()
 		
 		// Run once immediately on startup
-		s.scanAndProcessStuckTasks(ctx)
+		s.scanAndProcessPendingTasks(ctx)
 		
 		for {
 			select {
 			case <-ticker.C:
-				s.scanAndProcessStuckTasks(ctx)
+				s.scanAndProcessPendingTasks(ctx)
 			case <-ctx.Done():
 				logger.Info(ctx, "Pending task scanner stopped")
 				return
@@ -1849,100 +1849,111 @@ func (s *knowledgeService) StartPendingTaskScanner(ctx context.Context) {
 	logger.Info(ctx, "Pending task scanner started, checking every 5 minutes")
 }
 
-// scanAndProcessStuckTasks scans for stuck tasks and reprocesses them
-func (s *knowledgeService) scanAndProcessStuckTasks(ctx context.Context) {
-	logger.Info(ctx, "Scanning for stuck pending/processing tasks")
+// scanAndProcessPendingTasks scans for pending tasks and processes them in batches
+func (s *knowledgeService) scanAndProcessPendingTasks(ctx context.Context) {
+	logger.Info(ctx, "Starting batch processing of pending tasks")
 	
-	// Find tasks that have been:
-	// - pending for more than 10 minutes
-	// - processing for more than 30 minutes
-	stuckKnowledge, err := s.repo.FindStuckKnowledge(ctx, 10, 30)
-	if err != nil {
-		logger.Errorf(ctx, "Failed to find stuck knowledge: %v", err)
-		return
-	}
+	batchSize := 100
+	totalProcessed := 0
 	
-	if len(stuckKnowledge) == 0 {
-		logger.Info(ctx, "No stuck tasks found")
-		return
-	}
-	
-	logger.Infof(ctx, "Found %d stuck tasks, reprocessing...", len(stuckKnowledge))
-	
-	for _, knowledge := range stuckKnowledge {
-		// Clone context for goroutine
-		newCtx := logger.CloneContext(ctx)
-		
-		// Get knowledge base configuration
-		kb, err := s.kbService.GetKnowledgeBaseByID(newCtx, knowledge.KnowledgeBaseID)
+	for {
+		// Fetch 100 pending records at a time
+		pendingKnowledge, err := s.repo.FindPendingKnowledge(ctx, batchSize)
 		if err != nil {
-			logger.Errorf(newCtx, "Failed to get knowledge base for stuck task %s: %v", knowledge.ID, err)
-			continue
+			logger.Errorf(ctx, "Failed to find pending knowledge: %v", err)
+			return
 		}
 		
-		logger.Infof(newCtx, "Reprocessing stuck knowledge: ID=%s, status=%s, title=%s", 
-			knowledge.ID, knowledge.ParseStatus, knowledge.Title)
+		// If no pending records found, we're done
+		if len(pendingKnowledge) == 0 {
+			logger.Infof(ctx, "No more pending tasks found. Total processed: %d", totalProcessed)
+			return
+		}
 		
-		// Reprocess based on knowledge type
-		switch knowledge.Type {
-		case "file":
-			// For file type, we need to reprocess from file path
-			if knowledge.FilePath == "" {
-				logger.Warnf(newCtx, "Stuck knowledge %s has no file path, marking as failed", knowledge.ID)
-				knowledge.ParseStatus = "failed"
-				knowledge.ErrorMessage = "File path missing, cannot reprocess"
-				knowledge.UpdatedAt = time.Now()
-				s.repo.UpdateKnowledge(newCtx, knowledge)
-				continue
-			}
+		logger.Infof(ctx, "Found %d pending tasks in this batch, processing...", len(pendingKnowledge))
+		
+		// Process each knowledge in the batch
+		for _, knowledge := range pendingKnowledge {
+			// Clone context for goroutine
+			newCtx := logger.CloneContext(ctx)
 			
-			// Open the file and reprocess
-			file, err := os.Open(knowledge.FilePath)
+			// Get knowledge base configuration
+			kb, err := s.kbService.GetKnowledgeBaseByID(newCtx, knowledge.KnowledgeBaseID)
 			if err != nil {
-				logger.Errorf(newCtx, "Failed to open file for stuck knowledge %s: %v", knowledge.ID, err)
-				knowledge.ParseStatus = "failed"
-				knowledge.ErrorMessage = fmt.Sprintf("Failed to reopen file: %v", err)
-				knowledge.UpdatedAt = time.Now()
-				s.repo.UpdateKnowledge(newCtx, knowledge)
+				logger.Errorf(newCtx, "Failed to get knowledge base for pending task %s: %v", knowledge.ID, err)
 				continue
 			}
 			
-			// Create a mock multipart.FileHeader for reprocessing
-			fileInfo, _ := file.Stat()
-			mockHeader := &multipart.FileHeader{
-				Filename: knowledge.FileName,
-				Size:     fileInfo.Size(),
-			}
-			file.Close()
+			logger.Infof(newCtx, "Processing pending knowledge: ID=%s, type=%s, title=%s", 
+				knowledge.ID, knowledge.Type, knowledge.Title)
 			
-			go s.processDocument(newCtx, kb, knowledge, mockHeader, kb.ChunkingConfig.EnableMultimodal)
-			
-		case "url":
-			// For URL type, reprocess from source URL
-			if knowledge.Source == "" {
-				logger.Warnf(newCtx, "Stuck knowledge %s has no source URL, marking as failed", knowledge.ID)
+			// Process based on knowledge type
+			switch knowledge.Type {
+			case "file":
+				// For file type, process from file path
+				if knowledge.FilePath == "" {
+					logger.Warnf(newCtx, "Pending knowledge %s has no file path, marking as failed", knowledge.ID)
+					knowledge.ParseStatus = "failed"
+					knowledge.ErrorMessage = "File path missing, cannot process"
+					knowledge.UpdatedAt = time.Now()
+					s.repo.UpdateKnowledge(newCtx, knowledge)
+					continue
+				}
+				
+				// Open the file and process
+				file, err := os.Open(knowledge.FilePath)
+				if err != nil {
+					logger.Errorf(newCtx, "Failed to open file for pending knowledge %s: %v", knowledge.ID, err)
+					knowledge.ParseStatus = "failed"
+					knowledge.ErrorMessage = fmt.Sprintf("Failed to open file: %v", err)
+					knowledge.UpdatedAt = time.Now()
+					s.repo.UpdateKnowledge(newCtx, knowledge)
+					continue
+				}
+				
+				// Create a mock multipart.FileHeader for processing
+				fileInfo, _ := file.Stat()
+				mockHeader := &multipart.FileHeader{
+					Filename: knowledge.FileName,
+					Size:     fileInfo.Size(),
+				}
+				file.Close()
+				
+				go s.processDocument(newCtx, kb, knowledge, mockHeader, kb.ChunkingConfig.EnableMultimodal)
+				
+			case "url":
+				// For URL type, process from source URL
+				if knowledge.Source == "" {
+					logger.Warnf(newCtx, "Pending knowledge %s has no source URL, marking as failed", knowledge.ID)
+					knowledge.ParseStatus = "failed"
+					knowledge.ErrorMessage = "Source URL missing, cannot process"
+					knowledge.UpdatedAt = time.Now()
+					s.repo.UpdateKnowledge(newCtx, knowledge)
+					continue
+				}
+				
+				go s.processDocumentFromURL(newCtx, kb, knowledge, knowledge.Source, kb.ChunkingConfig.EnableMultimodal)
+				
+			case "passage":
+				// For passage type, we cannot process without the original passages
+				logger.Warnf(newCtx, "Pending knowledge %s is passage type, marking as failed (requires manual resubmit)", knowledge.ID)
 				knowledge.ParseStatus = "failed"
-				knowledge.ErrorMessage = "Source URL missing, cannot reprocess"
+				knowledge.ErrorMessage = "Passage type cannot be auto-processed, please resubmit the passages"
 				knowledge.UpdatedAt = time.Now()
 				s.repo.UpdateKnowledge(newCtx, knowledge)
-				continue
+				
+			default:
+				logger.Warnf(newCtx, "Unknown knowledge type %s for pending task %s", knowledge.Type, knowledge.ID)
 			}
-			
-			go s.processDocumentFromURL(newCtx, kb, knowledge, knowledge.Source, kb.ChunkingConfig.EnableMultimodal)
-			
-		case "passage":
-			// For passage type, we cannot easily reprocess without the original passages
-			// Mark as failed and require manual intervention
-			logger.Warnf(newCtx, "Stuck knowledge %s is passage type, marking as failed (requires manual resubmit)", knowledge.ID)
-			knowledge.ParseStatus = "failed"
-			knowledge.ErrorMessage = "Passage type cannot be auto-recovered, please resubmit the passages"
-			knowledge.UpdatedAt = time.Now()
-			s.repo.UpdateKnowledge(newCtx, knowledge)
-			
-		default:
-			logger.Warnf(newCtx, "Unknown knowledge type %s for stuck task %s", knowledge.Type, knowledge.ID)
+		}
+		
+		totalProcessed += len(pendingKnowledge)
+		logger.Infof(ctx, "Finished processing batch of %d tasks. Total so far: %d", len(pendingKnowledge), totalProcessed)
+		
+		// If we got less than batchSize, we've processed all pending tasks
+		if len(pendingKnowledge) < batchSize {
+			logger.Infof(ctx, "All pending tasks processed. Total: %d", totalProcessed)
+			return
 		}
 	}
-	
-	logger.Infof(ctx, "Finished reprocessing %d stuck tasks", len(stuckKnowledge))
 }
