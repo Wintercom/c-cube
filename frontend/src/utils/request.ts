@@ -3,7 +3,7 @@ import axios from "axios";
 import { generateRandomString } from "./index";
 
 // API基础URL
-const BASE_URL = import.meta.env.VITE_IS_DOCKER ? "" : "http://localhost:5000";
+const BASE_URL = import.meta.env.VITE_IS_DOCKER ? "" : "http://localhost:8080";
 
 
 // 创建Axios实例
