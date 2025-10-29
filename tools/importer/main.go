@@ -32,6 +32,7 @@ type QABatchImporter struct {
 	failedRecords   []FailedRecord
 	db              *sql.DB
 	skipExisting    bool
+	maxImportNum    int
 }
 
 type ImportStats struct {
@@ -48,7 +49,7 @@ type FailedRecord struct {
 	Error string `json:"error,omitempty"`
 }
 
-func NewQABatchImporter(apiURL, token, kbID string, batchSize int, db *sql.DB, skipExisting bool) *QABatchImporter {
+func NewQABatchImporter(apiURL, token, kbID string, batchSize int, db *sql.DB, skipExisting bool, maxImportNum int) *QABatchImporter {
 	return &QABatchImporter{
 		apiURL:          strings.TrimRight(apiURL, "/"),
 		token:           token,
@@ -58,6 +59,7 @@ func NewQABatchImporter(apiURL, token, kbID string, batchSize int, db *sql.DB, s
 		failedRecords:   []FailedRecord{},
 		db:              db,
 		skipExisting:    skipExisting,
+		maxImportNum:    maxImportNum,
 	}
 }
 
@@ -135,8 +137,14 @@ func (imp *QABatchImporter) ImportBatch(qaList []common.TransformedQA, startInde
 	} else {
 		fmt.Println("跳过已存在: 否")
 	}
+	if imp.maxImportNum > 0 {
+		fmt.Printf("导入数量限制: %d 条\n", imp.maxImportNum)
+	} else {
+		fmt.Println("导入数量限制: 无限制")
+	}
 	fmt.Println()
 
+	importedCount := 0
 	for i := startIndex; i < len(qaList); i++ {
 		qaData := qaList[i]
 		qaID := getQAID(qaData.Metadata)
@@ -168,6 +176,12 @@ func (imp *QABatchImporter) ImportBatch(qaList []common.TransformedQA, startInde
 		} else {
 			imp.stats.Success++
 			fmt.Println("  ✅ 成功")
+			importedCount++
+
+			if imp.maxImportNum > 0 && importedCount >= imp.maxImportNum {
+				fmt.Printf("\n✅ 已达到导入数量限制 (%d 条)，停止导入\n", imp.maxImportNum)
+				return
+			}
 		}
 
 		if (i+1)%imp.batchSize == 0 {
@@ -277,6 +291,7 @@ func main() {
 		dbPassword  string
 		dbName      string
 		showHelp    bool
+		importNum   int
 	)
 
 	flag.StringVar(&apiURL, "api-url", "", "API 基础 URL (必填)")
@@ -291,6 +306,7 @@ func main() {
 	flag.StringVar(&dbUser, "db-user", getEnvOrDefault("DB_USER", "postgres"), "数据库用户 (默认从 DB_USER 环境变量读取)")
 	flag.StringVar(&dbPassword, "db-password", os.Getenv("DB_PASSWORD"), "数据库密码 (默认从 DB_PASSWORD 环境变量读取)")
 	flag.StringVar(&dbName, "db-name", getEnvOrDefault("DB_NAME", "WeKnora"), "数据库名称 (默认从 DB_NAME 环境变量读取)")
+	flag.IntVar(&importNum, "num", 0, "导入数量限制 (0 表示无限制，>0 表示导入指定条数后退出)")
 	flag.BoolVar(&showHelp, "help", false, "显示帮助信息")
 
 	flag.Parse()
@@ -308,6 +324,7 @@ func main() {
 		fmt.Println("  --start-index     起始索引，用于断点续传 (默认: 0)")
 		fmt.Println("  --failed-log      失败记录保存文件 (默认: failed_imports.json)")
 		fmt.Println("  --skip-existing   跳过已存在的知识（基于 metadata.qa_id）")
+		fmt.Println("  --num             导入数量限制 (0=无限制, >0=导入指定条数后退出, 默认: 0)")
 		fmt.Println("\n数据库配置 (用于 --skip-existing):")
 		fmt.Println("  --db-host         数据库主机 (默认从 DB_HOST 环境变量读取)")
 		fmt.Println("  --db-port         数据库端口 (默认从 DB_PORT 环境变量读取，默认: 5432)")
@@ -328,6 +345,13 @@ func main() {
 		fmt.Println("           --skip-existing \\")
 		fmt.Println("           --db-host localhost \\")
 		fmt.Println("           --db-password yourpass \\")
+		fmt.Println("           transformed_qa_data.json")
+		fmt.Println("")
+		fmt.Println("  # 限制导入数量")
+		fmt.Println("  importer --api-url http://localhost:8080 \\")
+		fmt.Println("           --token YOUR_TOKEN \\")
+		fmt.Println("           --kb-id kb-123456 \\")
+		fmt.Println("           --num 100 \\")
 		fmt.Println("           transformed_qa_data.json")
 		os.Exit(0)
 	}
@@ -390,7 +414,7 @@ func main() {
 		fmt.Printf("⚠️  从第 %d 条开始导入（断点续传）\n", startIndex+1)
 	}
 
-	importer := NewQABatchImporter(apiURL, token, kbID, batchSize, db, skipExist)
+	importer := NewQABatchImporter(apiURL, token, kbID, batchSize, db, skipExist, importNum)
 
 	startTime := time.Now()
 
