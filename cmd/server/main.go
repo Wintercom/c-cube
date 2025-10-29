@@ -42,7 +42,6 @@ func main() {
 		router *gin.Engine,
 		tracer *tracing.Tracer,
 		resourceCleaner interfaces.ResourceCleaner,
-		knowledgeService interfaces.KnowledgeService,
 	) error {
 		// Create context for resource cleanup
 		shutdownTimeout := cfg.Server.ShutdownTimeout
@@ -64,11 +63,6 @@ func main() {
 		}
 
 		ctx, done := context.WithCancel(context.Background())
-		
-		// Start the pending task scanner
-		log.Println("Starting pending task scanner...")
-		knowledgeService.StartPendingTaskScanner(ctx)
-		
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 		go func() {

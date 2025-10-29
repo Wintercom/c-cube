@@ -44,8 +44,6 @@ type KnowledgeService interface {
 	CloneKnowledgeBase(ctx context.Context, srcID, dstID string) error
 	// UpdateImageInfo updates image information for a knowledge chunk.
 	UpdateImageInfo(ctx context.Context, knowledgeID string, chunkID string, imageInfo string) error
-	// StartPendingTaskScanner starts a background scanner that periodically checks for stuck pending/processing tasks.
-	StartPendingTaskScanner(ctx context.Context)
 }
 
 // KnowledgeRepository defines the interface for knowledge repositories.
@@ -73,6 +71,4 @@ type KnowledgeRepository interface {
 	// AminusB returns the difference set of A and B.
 	AminusB(ctx context.Context, Atenant uint, A string, Btenant uint, B string) ([]string, error)
 	UpdateKnowledgeColumn(ctx context.Context, id string, column string, value interface{}) error
-	// FindStuckKnowledge finds knowledge that has been stuck in pending or processing state.
-	FindStuckKnowledge(ctx context.Context, pendingMinutes int, processingMinutes int) ([]*types.Knowledge, error)
 }
