@@ -33,6 +33,9 @@ type QABatchImporter struct {
 	db              *sql.DB
 	skipExisting    bool
 	maxImportNum    int
+	waitForCompletion bool
+	completionThreshold float64
+	checkInterval   time.Duration
 }
 
 type ImportStats struct {
@@ -49,7 +52,7 @@ type FailedRecord struct {
 	Error string `json:"error,omitempty"`
 }
 
-func NewQABatchImporter(apiURL, token, kbID string, batchSize int, db *sql.DB, skipExisting bool, maxImportNum int) *QABatchImporter {
+func NewQABatchImporter(apiURL, token, kbID string, batchSize int, db *sql.DB, skipExisting bool, maxImportNum int, waitForCompletion bool, completionThreshold float64, checkInterval time.Duration) *QABatchImporter {
 	return &QABatchImporter{
 		apiURL:          strings.TrimRight(apiURL, "/"),
 		token:           token,
@@ -60,10 +63,20 @@ func NewQABatchImporter(apiURL, token, kbID string, batchSize int, db *sql.DB, s
 		db:              db,
 		skipExisting:    skipExisting,
 		maxImportNum:    maxImportNum,
+		waitForCompletion: waitForCompletion,
+		completionThreshold: completionThreshold,
+		checkInterval:   checkInterval,
 	}
 }
 
-func (imp *QABatchImporter) ImportSinglePassage(data common.TransformedQA) error {
+type APIResponse struct {
+	Success   bool               `json:"success"`
+	Data      interface{}        `json:"data"`
+	ID        string             `json:"id"`
+	CreatedAt string             `json:"created_at"`
+}
+
+func (imp *QABatchImporter) ImportSinglePassage(data common.TransformedQA) (string, error) {
 	url := fmt.Sprintf("%s/api/v1/knowledge-bases/%s/knowledge/passage",
 		imp.apiURL, imp.knowledgeBaseID)
 
@@ -76,12 +89,12 @@ func (imp *QABatchImporter) ImportSinglePassage(data common.TransformedQA) error
 
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("序列化请求失败: %w", err)
+		return "", fmt.Errorf("序列化请求失败: %w", err)
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return fmt.Errorf("创建请求失败: %w", err)
+		return "", fmt.Errorf("创建请求失败: %w", err)
 	}
 
 	req.Header.Set("X-API-Key", imp.token)
@@ -93,16 +106,21 @@ func (imp *QABatchImporter) ImportSinglePassage(data common.TransformedQA) error
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("请求失败: %w", err)
+		return "", fmt.Errorf("请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
+	body, _ := io.ReadAll(resp.Body)
+
 	if resp.StatusCode == http.StatusCreated {
-		return nil
+		var apiResp APIResponse
+		if err := json.Unmarshal(body, &apiResp); err != nil {
+			return "", fmt.Errorf("解析响应失败: %w", err)
+		}
+		return apiResp.ID, nil
 	}
 
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("API 错误 %d: %s", resp.StatusCode, string(body))
+	return "", fmt.Errorf("API 错误 %d: %s", resp.StatusCode, string(body))
 }
 
 func (imp *QABatchImporter) KnowledgeExists(qaID string) (bool, error) {
@@ -126,6 +144,60 @@ func (imp *QABatchImporter) KnowledgeExists(qaID string) (bool, error) {
 	return count > 0, nil
 }
 
+func (imp *QABatchImporter) WaitForBatchCompletion(knowledgeIDs []string) error {
+	if imp.db == nil || !imp.waitForCompletion {
+		return nil
+	}
+
+	if len(knowledgeIDs) == 0 {
+		return nil
+	}
+
+	fmt.Printf("\n等待前一批次 (%d 条) 解析完成...\n", len(knowledgeIDs))
+	fmt.Printf("目标完成率: %.0f%%\n", imp.completionThreshold*100)
+
+	for {
+		placeholders := make([]string, len(knowledgeIDs))
+		args := make([]interface{}, len(knowledgeIDs)+1)
+		args[0] = imp.knowledgeBaseID
+		for i, id := range knowledgeIDs {
+			placeholders[i] = fmt.Sprintf("$%d", i+2)
+			args[i+1] = id
+		}
+
+		query := fmt.Sprintf(`
+			SELECT 
+				COUNT(*) FILTER (WHERE parse_status = 'completed') as completed_count,
+				COUNT(*) FILTER (WHERE parse_status = 'failed') as failed_count,
+				COUNT(*) as total_count
+			FROM knowledges 
+			WHERE knowledge_base_id = $1 
+			  AND id IN (%s)
+			  AND deleted_at IS NULL
+		`, strings.Join(placeholders, ", "))
+
+		var completedCount, failedCount, totalCount int
+		err := imp.db.QueryRow(query, args...).Scan(&completedCount, &failedCount, &totalCount)
+		if err != nil {
+			return fmt.Errorf("查询批次状态失败: %w", err)
+		}
+
+		finishedCount := completedCount + failedCount
+		completionRate := float64(finishedCount) / float64(totalCount)
+
+		fmt.Printf("  [检查] 总计: %d, 完成: %d, 失败: %d, 处理中/待处理: %d, 完成率: %.1f%%\n",
+			totalCount, completedCount, failedCount, totalCount-finishedCount, completionRate*100)
+
+		if completionRate >= imp.completionThreshold {
+			fmt.Printf("✅ 批次完成率达到目标 (%.1f%% >= %.0f%%)，继续下一批次\n\n", completionRate*100, imp.completionThreshold*100)
+			return nil
+		}
+
+		fmt.Printf("  等待 %v 后重新检查...\n", imp.checkInterval)
+		time.Sleep(imp.checkInterval)
+	}
+}
+
 func (imp *QABatchImporter) ImportBatch(qaList []common.TransformedQA, startIndex int) {
 	imp.stats.Total = len(qaList)
 
@@ -145,6 +217,8 @@ func (imp *QABatchImporter) ImportBatch(qaList []common.TransformedQA, startInde
 	fmt.Println()
 
 	importedCount := 0
+	var currentBatchIDs []string
+
 	for i := startIndex; i < len(qaList); i++ {
 		qaData := qaList[i]
 		qaID := getQAID(qaData.Metadata)
@@ -163,7 +237,7 @@ func (imp *QABatchImporter) ImportBatch(qaList []common.TransformedQA, startInde
 			}
 		}
 
-		err := imp.ImportSinglePassage(qaData)
+		knowledgeID, err := imp.ImportSinglePassage(qaData)
 		if err != nil {
 			imp.stats.Failed++
 			fmt.Printf("  ❌ %v\n", err)
@@ -177,6 +251,7 @@ func (imp *QABatchImporter) ImportBatch(qaList []common.TransformedQA, startInde
 			imp.stats.Success++
 			fmt.Println("  ✅ 成功")
 			importedCount++
+			currentBatchIDs = append(currentBatchIDs, knowledgeID)
 
 			if imp.maxImportNum > 0 && importedCount >= imp.maxImportNum {
 				fmt.Printf("\n✅ 已达到导入数量限制 (%d 条)，停止导入\n", imp.maxImportNum)
@@ -185,8 +260,18 @@ func (imp *QABatchImporter) ImportBatch(qaList []common.TransformedQA, startInde
 		}
 
 		if (i+1)%imp.batchSize == 0 {
-			fmt.Printf("\n--- 已完成 %d/%d 条，暂停 0.5 秒 ---\n\n", i+1, len(qaList))
-			time.Sleep(1000 * time.Millisecond)
+			fmt.Printf("\n--- 已完成 %d/%d 条 ---\n", i+1, len(qaList))
+			
+			if imp.waitForCompletion && len(currentBatchIDs) > 0 {
+				if err := imp.WaitForBatchCompletion(currentBatchIDs); err != nil {
+					fmt.Printf("❌ 等待批次完成失败: %v\n", err)
+				}
+				currentBatchIDs = []string{}
+			} else {
+				fmt.Println("暂停 1 秒")
+				time.Sleep(1000 * time.Millisecond)
+			}
+			fmt.Println()
 		}
 
 		time.Sleep(200 * time.Millisecond)
@@ -292,6 +377,9 @@ func main() {
 		dbName      string
 		showHelp    bool
 		importNum   int
+		waitForCompletion bool
+		completionThreshold float64
+		checkInterval int
 	)
 
 	flag.StringVar(&apiURL, "api-url", "", "API 基础 URL (必填)")
@@ -307,6 +395,9 @@ func main() {
 	flag.StringVar(&dbPassword, "db-password", os.Getenv("DB_PASSWORD"), "数据库密码 (默认从 DB_PASSWORD 环境变量读取)")
 	flag.StringVar(&dbName, "db-name", getEnvOrDefault("DB_NAME", "WeKnora"), "数据库名称 (默认从 DB_NAME 环境变量读取)")
 	flag.IntVar(&importNum, "num", 0, "导入数量限制 (0 表示无限制，>0 表示导入指定条数后退出)")
+	flag.BoolVar(&waitForCompletion, "wait-completion", false, "等待前一批次解析完成再开始下一批次（需要提供数据库配置）")
+	flag.Float64Var(&completionThreshold, "completion-threshold", 0.5, "批次完成率阈值 (0.0-1.0，默认 0.5 表示 50%)")
+	flag.IntVar(&checkInterval, "check-interval", 10, "检查批次完成状态的间隔时间（秒）")
 	flag.BoolVar(&showHelp, "help", false, "显示帮助信息")
 
 	flag.Parse()
@@ -325,7 +416,10 @@ func main() {
 		fmt.Println("  --failed-log      失败记录保存文件 (默认: failed_imports.json)")
 		fmt.Println("  --skip-existing   跳过已存在的知识（基于 metadata.qa_id）")
 		fmt.Println("  --num             导入数量限制 (0=无限制, >0=导入指定条数后退出, 默认: 0)")
-		fmt.Println("\n数据库配置 (用于 --skip-existing):")
+		fmt.Println("  --wait-completion 等待前一批次解析完成再开始下一批次（需要数据库配置）")
+		fmt.Println("  --completion-threshold 批次完成率阈值 (0.0-1.0，默认: 0.5)")
+		fmt.Println("  --check-interval  检查批次完成状态的间隔时间/秒 (默认: 10)")
+		fmt.Println("\n数据库配置 (用于 --skip-existing 和 --wait-completion):")
 		fmt.Println("  --db-host         数据库主机 (默认从 DB_HOST 环境变量读取)")
 		fmt.Println("  --db-port         数据库端口 (默认从 DB_PORT 环境变量读取，默认: 5432)")
 		fmt.Println("  --db-user         数据库用户 (默认从 DB_USER 环境变量读取，默认: postgres)")
@@ -353,6 +447,17 @@ func main() {
 		fmt.Println("           --kb-id kb-123456 \\")
 		fmt.Println("           --num 100 \\")
 		fmt.Println("           transformed_qa_data.json")
+		fmt.Println("")
+		fmt.Println("  # 等待批次完成")
+		fmt.Println("  importer --api-url http://localhost:8080 \\")
+		fmt.Println("           --token YOUR_TOKEN \\")
+		fmt.Println("           --kb-id kb-123456 \\")
+		fmt.Println("           --wait-completion \\")
+		fmt.Println("           --completion-threshold 0.5 \\")
+		fmt.Println("           --check-interval 10 \\")
+		fmt.Println("           --db-host localhost \\")
+		fmt.Println("           --db-password yourpass \\")
+		fmt.Println("           transformed_qa_data.json")
 		os.Exit(0)
 	}
 
@@ -363,9 +468,13 @@ func main() {
 	}
 
 	var db *sql.DB
-	if skipExist {
+	if skipExist || waitForCompletion {
 		if dbHost == "" {
-			fmt.Println("❌ 错误: 启用 --skip-existing 时必须提供数据库主机 (--db-host 或 DB_HOST 环境变量)")
+			if skipExist {
+				fmt.Println("❌ 错误: 启用 --skip-existing 时必须提供数据库主机 (--db-host 或 DB_HOST 环境变量)")
+			} else {
+				fmt.Println("❌ 错误: 启用 --wait-completion 时必须提供数据库主机 (--db-host 或 DB_HOST 环境变量)")
+			}
 			os.Exit(1)
 		}
 
@@ -414,7 +523,15 @@ func main() {
 		fmt.Printf("⚠️  从第 %d 条开始导入（断点续传）\n", startIndex+1)
 	}
 
-	importer := NewQABatchImporter(apiURL, token, kbID, batchSize, db, skipExist, importNum)
+	if waitForCompletion {
+		if completionThreshold < 0 || completionThreshold > 1 {
+			fmt.Println("❌ 错误: --completion-threshold 必须在 0.0 到 1.0 之间")
+			os.Exit(1)
+		}
+		fmt.Printf("等待批次完成: 启用 (完成率阈值: %.0f%%, 检查间隔: %d秒)\n", completionThreshold*100, checkInterval)
+	}
+
+	importer := NewQABatchImporter(apiURL, token, kbID, batchSize, db, skipExist, importNum, waitForCompletion, completionThreshold, time.Duration(checkInterval)*time.Second)
 
 	startTime := time.Now()
 
