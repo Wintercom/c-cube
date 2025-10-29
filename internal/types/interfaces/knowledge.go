@@ -75,6 +75,4 @@ type KnowledgeRepository interface {
 	UpdateKnowledgeColumn(ctx context.Context, id string, column string, value interface{}) error
 	// FindStuckKnowledge finds knowledge that has been stuck in pending or processing state.
 	FindStuckKnowledge(ctx context.Context, pendingMinutes int, processingMinutes int) ([]*types.Knowledge, error)
-	// FindPendingKnowledge finds knowledge in pending state with a limit
-	FindPendingKnowledge(ctx context.Context, limit int) ([]*types.Knowledge, error)
 }

@@ -220,16 +220,3 @@ func (r *knowledgeRepository) FindStuckKnowledge(ctx context.Context, pendingMin
 	
 	return knowledges, err
 }
-
-// FindPendingKnowledge finds knowledge in pending state with a limit
-func (r *knowledgeRepository) FindPendingKnowledge(ctx context.Context, limit int) ([]*types.Knowledge, error) {
-	var knowledges []*types.Knowledge
-	
-	err := r.db.WithContext(ctx).
-		Where("parse_status = ?", "pending").
-		Order("created_at ASC").
-		Limit(limit).
-		Find(&knowledges).Error
-	
-	return knowledges, err
-}
