@@ -113,7 +113,7 @@ func (t *QADataTransformer) BuildConversationalPassage(qa HistoricalQA) string {
 	var sb strings.Builder
 
 	sb.WriteString("\n")
-	sb.WriteString(fmt.Sprintf("问题标题: %s\n", t.CleanHTMLContent(qa.Title)))
+	sb.WriteString(fmt.Sprintf("问题标题: [%s]%s\n", qa.Category, t.CleanHTMLContent(qa.Title)))
 	sb.WriteString("\n")
 
 	if qa.Description != "" {
@@ -178,7 +178,7 @@ func (t *QADataTransformer) CheckFilterQA(qa HistoricalQA) bool {
 			maxLen = cl
 		}
 	}
-	if maxLen > 10 {
+	if maxLen > 15 {
 		return false
 	}
 
@@ -292,7 +292,7 @@ func (t *QADataTransformer) TransformSingleQA(qa HistoricalQA) (*common.Transfor
 
 	passage := t.BuildConversationalPassage(qa)
 	metadata := t.ExtractMetadata(qa)
-	title := t.CleanHTMLContent(qa.Title)
+	title := fmt.Sprintf("[%s]%s", qa.Category, t.CleanHTMLContent(qa.Title))
 	description := t.CleanHTMLContent(qa.Description)
 
 	return &common.TransformedQA{
