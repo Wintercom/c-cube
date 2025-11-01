@@ -15,6 +15,7 @@ class WebParser(BaseParser):
 
     def __init__(self, title: str, **kwargs):
         self.title = title
+        self.extracted_title = None  # Store extracted title from HTML
         self.proxy = os.environ.get("WEB_PROXY", "")
         super().__init__(file_name=title, **kwargs)
         logger.info(f"Initialized WebParser with title: {title}")
@@ -110,6 +111,9 @@ class WebParser(BaseParser):
                     logger.info("No title found, using default")
 
             logger.info(f"Web page title: {title}")
+            # Store the extracted title for later use
+            self.extracted_title = title.strip() if title else ""
+            logger.info(f"DEBUG: Stored extracted_title='{self.extracted_title}'")
             text = "\n".join(
                 (line.strip() for line in text.splitlines() if line.strip())
             )

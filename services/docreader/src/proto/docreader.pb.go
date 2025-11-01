@@ -629,6 +629,7 @@ type ReadResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Chunks        []*Chunk               `protobuf:"bytes,1,rep,name=chunks,proto3" json:"chunks,omitempty"` // 文档分块
 	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`   // 错误信息
+	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`   // 文档标题 (仅从URL读取时返回)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -673,6 +674,13 @@ func (x *ReadResponse) GetChunks() []*Chunk {
 func (x *ReadResponse) GetError() string {
 	if x != nil {
 		return x.Error
+	}
+	return ""
+}
+
+func (x *ReadResponse) GetTitle() string {
+	if x != nil {
+		return x.Title
 	}
 	return ""
 }
